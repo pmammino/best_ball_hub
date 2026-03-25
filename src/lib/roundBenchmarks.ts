@@ -41,6 +41,44 @@ export function getAVRate(position: string, pickNumber: number): number | null {
 }
 
 /**
+ * Standard normal CDF via the Abramowitz & Stegun polynomial approximation.
+ * Accurate to ~7 significant digits.
+ */
+function normCdf(z: number): number {
+  if (z < -8) return 0
+  if (z >  8) return 1
+  const t = 1 / (1 + 0.2316419 * Math.abs(z))
+  const pdf = Math.exp(-0.5 * z * z) / 2.5066282746310002 // sqrt(2π)
+  const poly =
+    t * (0.319381530 +
+    t * (-0.356563782 +
+    t * (1.781477937 +
+    t * (-1.821255978 +
+    t *  1.330274429))))
+  const p = 1 - pdf * poly
+  return z >= 0 ? p : 1 - p
+}
+
+/**
+ * Probability that a player's season Rate exceeds the round benchmark.
+ *
+ * Models Rate as Normal(μ = medianRate, σ = stdDev) — a normal approximation
+ * to the Poisson process of 17 independent weekly scoring events.
+ * σ is derived externally from (C_rate − F_rate) / 1.349 (75th–25th spread).
+ *
+ * Returns a value in [0, 1], or null if inputs are invalid.
+ */
+export function exceedProb(
+  medianRate: number,
+  stdDev: number,
+  avRate: number,
+): number | null {
+  if (stdDev <= 0 || !isFinite(stdDev)) return medianRate > avRate ? 1 : 0
+  const z = (avRate - medianRate) / stdDev   // z for the threshold
+  return 1 - normCdf(z)                       // P(X > avRate)
+}
+
+/**
  * Grades a player's predicted Rate vs. the positional round benchmark.
  * Returns the delta (predRate - AVRate) and a letter grade.
  */

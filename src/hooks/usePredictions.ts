@@ -18,6 +18,8 @@ export interface PlayerPrediction {
   fullName: string
   position: string
   team: string
+  /** σ derived from (C_rate − F_rate) / 1.349  (75th–25th percentile spread) */
+  stdDev: number | null
   C: SplitPrediction | null
   M: SplitPrediction | null
   F: SplitPrediction | null

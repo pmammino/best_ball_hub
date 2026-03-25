@@ -2,7 +2,7 @@
 
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
-import { getAVRate, gradeRate, pickToRound } from '@/lib/roundBenchmarks'
+import { getAVRate, gradeRate, exceedProb, pickToRound } from '@/lib/roundBenchmarks'
 
 interface Props {
   entry: DraftEntry
@@ -144,6 +144,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                 <th className={`px-3 py-2 text-right font-medium ${splitColor} opacity-80`}>Rate</th>
                 <th className="px-3 py-2 text-right text-gray-500 font-medium">Avg</th>
                 <th className="px-3 py-2 text-center text-gray-400 font-medium">Grade</th>
+                <th className="px-3 py-2 text-right text-gray-400 font-medium" title="P(Rate ≥ round avg) — Poisson normal approximation, μ=Median Rate, σ=(C−F)/1.349, n=17">P(↑)</th>
                 <th className={`px-3 py-2 text-right font-medium ${splitColor} opacity-80`}>AVG</th>
                 <th className={`px-3 py-2 text-right font-medium ${splitColor} opacity-80`}>Max</th>
               </tr>
@@ -151,11 +152,17 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
             <tbody>
               {entry.picks.map((pick, i) => {
                 const isStacked = stackedTeams.includes(pick.player.nflTeam)
-                const pred = getPred(pick.player.fullName)?.[activeSplit]
+                const predEntry = getPred(pick.player.fullName)
+                const pred = predEntry?.[activeSplit]
                 const round = pickToRound(pick.pickNumber)
                 const avRate = getAVRate(pick.player.position, pick.pickNumber)
                 const grading = pred && avRate !== null
                   ? gradeRate(pred.predRate, avRate)
+                  : null
+                const medianRate = predEntry?.M?.predRate ?? null
+                const stdDev = predEntry?.stdDev ?? null
+                const prob = (medianRate !== null && stdDev !== null && avRate !== null)
+                  ? exceedProb(medianRate, stdDev, avRate)
                   : null
 
                 return (
@@ -198,6 +205,22 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                       )}
                     </td>
 
+                    {/* P(exceed AVRate) */}
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {prob !== null ? (
+                        <span className={`text-xs font-semibold ${
+                          prob >= 0.70 ? 'text-emerald-300' :
+                          prob >= 0.55 ? 'text-lime-400'    :
+                          prob >= 0.40 ? 'text-yellow-400'  :
+                                         'text-red-400'
+                        }`}>
+                          {(prob * 100).toFixed(0)}%
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 text-xs">—</span>
+                      )}
+                    </td>
+
                     {/* AVG & Max */}
                     <td className={`px-3 py-2 text-right tabular-nums font-medium ${pred ? splitColor : 'text-gray-700'}`}>
                       {pred ? pred.predAVG.toFixed(1) : '—'}
@@ -212,16 +235,23 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
           </table>
         </div>
 
-        {/* Grade legend */}
-        <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
-          <span className="text-gray-500 font-medium">Grade vs round avg:</span>
-          <span className="text-emerald-300">A+ ≥+50%</span>
-          <span className="text-green-400">A ≥+20%</span>
-          <span className="text-lime-400">B ≥−10%</span>
-          <span className="text-yellow-400">C ≥−30%</span>
-          <span className="text-orange-400">D ≥−50%</span>
-          <span className="text-red-400">F &lt;−50%</span>
-          <span className="ml-2">· Avg = position avg Rate for that round</span>
+        {/* Legend */}
+        <div className="mt-2 space-y-1">
+          <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+            <span className="text-gray-500 font-medium">Grade:</span>
+            <span className="text-emerald-300">A+ ≥+50%</span>
+            <span className="text-green-400">A ≥+20%</span>
+            <span className="text-lime-400">B ≥−10%</span>
+            <span className="text-yellow-400">C ≥−30%</span>
+            <span className="text-orange-400">D ≥−50%</span>
+            <span className="text-red-400">F &lt;−50%</span>
+            <span className="ml-1 opacity-60">vs position/round avg Rate</span>
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+            <span className="text-gray-500 font-medium">P(↑):</span>
+            <span>Probability Rate exceeds round avg — Poisson normal approx,</span>
+            <span>μ = Median Rate, σ = (Ceiling − Floor) / 1.349, n = 17 games</span>
+          </div>
         </div>
       </div>
     </div>

@@ -112,6 +112,14 @@ for idx, row in c_proj.iterrows():
             if not same.empty:
                 player_splits[split] = predict_split(same).get(same.index[0], None)
 
+    # σ = (C_rate - F_rate) / 1.349  (75th - 25th percentile → std dev)
+    c_rate = player_splits.get("C", {}).get("predRate") if player_splits.get("C") else None
+    f_rate = player_splits.get("F", {}).get("predRate") if player_splits.get("F") else None
+    if c_rate is not None and f_rate is not None:
+        std_dev = round((c_rate - f_rate) / 1.349, 4)
+    else:
+        std_dev = None
+
     records.append({
         "NFLNewsID":  int(row["NFLNewsID"]),
         "firstName":  str(row["firstname"]),
@@ -119,6 +127,7 @@ for idx, row in c_proj.iterrows():
         "fullName":   f"{row['firstname']} {row['lastname']}",
         "position":   str(row["position"]),
         "team":       str(row["team"]) if pd.notna(row["team"]) and row["team"] != "NA" else "",
+        "stdDev":     std_dev,
         "C": player_splits.get("C"),
         "M": player_splits.get("M"),
         "F": player_splits.get("F"),
@@ -130,4 +139,4 @@ with open(out_path, "w") as f:
 
 print(f"\nWrote {len(records)} player predictions ({len(SPLITS)} splits each) → {out_path}")
 sample = records[0]
-print(f"Sample: {sample['fullName']} | C:{sample['C']} | M:{sample['M']} | F:{sample['F']}")
+print(f"Sample: {sample['fullName']} | stdDev:{sample['stdDev']} | C:{sample['C']} | M:{sample['M']} | F:{sample['F']}")
