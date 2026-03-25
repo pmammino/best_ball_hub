@@ -2,7 +2,7 @@
 
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
-import { getAVRate, gradeRate, exceedProb, pickToRound } from '@/lib/roundBenchmarks'
+import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS } from '@/lib/roundBenchmarks'
 
 interface Props {
   entry: DraftEntry
@@ -50,18 +50,28 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
     .sort(([, a], [, b]) => b.length - a.length)
   const stackedTeams = stacks.map(([team]) => team)
 
-  // Positional counts + summed Rate per position
-  const posSummary: Record<Position, { count: number; totalRate: number }> = {
-    QB: { count: 0, totalRate: 0 },
-    RB: { count: 0, totalRate: 0 },
-    WR: { count: 0, totalRate: 0 },
-    TE: { count: 0, totalRate: 0 },
+  // Positional summary: count, active-split Rate sum, median Rate sum, Σ(σ²) for team SD
+  const posSummary: Record<Position, {
+    count: number
+    totalRate: number        // sum of active-split predRate
+    totalMedianRate: number  // sum of Median predRate (used for grade / P)
+    sumSdSq: number          // Σ stdDev² → positional SD = √sumSdSq
+  }> = {
+    QB: { count: 0, totalRate: 0, totalMedianRate: 0, sumSdSq: 0 },
+    RB: { count: 0, totalRate: 0, totalMedianRate: 0, sumSdSq: 0 },
+    WR: { count: 0, totalRate: 0, totalMedianRate: 0, sumSdSq: 0 },
+    TE: { count: 0, totalRate: 0, totalMedianRate: 0, sumSdSq: 0 },
   }
   for (const pick of entry.picks) {
     const pos = pick.player.position
+    const predEntry = getPred(pick.player.fullName)
     posSummary[pos].count += 1
-    const splitData = getPred(pick.player.fullName)?.[activeSplit]
+    const splitData = predEntry?.[activeSplit]
     if (splitData) posSummary[pos].totalRate += splitData.predRate
+    const medianData = predEntry?.M
+    if (medianData) posSummary[pos].totalMedianRate += medianData.predRate
+    const sd = predEntry?.stdDev ?? 0
+    posSummary[pos].sumSdSq += sd * sd
   }
 
   const splitColor = SPLIT_COLOR[activeSplit]
@@ -74,24 +84,71 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
         <p className="text-sm text-gray-400">{entry.picks.length} picks</p>
       </div>
 
-      {/* Positional summary with Rate totals */}
-      <div className="grid grid-cols-4 gap-2">
+      {/* Positional summary cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {(['QB', 'RB', 'WR', 'TE'] as Position[]).map((pos) => {
-          const { count, totalRate } = posSummary[pos]
+          const { count, totalRate, totalMedianRate, sumSdSq } = posSummary[pos]
+          const posSD = Math.sqrt(sumSdSq)
+          const benchmark = POSITIONAL_BENCHMARKS[pos]
+          const grading = totalMedianRate > 0 ? gradeRate(totalMedianRate, benchmark) : null
+          const prob = (totalMedianRate > 0 && posSD > 0)
+            ? exceedProb(totalMedianRate, posSD, benchmark)
+            : totalMedianRate > benchmark ? 1 : totalMedianRate > 0 ? 0 : null
+
           return (
-            <div key={pos} className={`rounded-lg border px-2 py-2 text-center ${POSITION_COLORS[pos]}`}>
-              <div className="text-lg font-bold">{count}</div>
-              <div className="text-xs font-medium">{pos}</div>
-              {totalRate > 0 && (
-                <div className={`text-xs font-semibold mt-0.5 ${splitColor}`} title={`Total Rate (${activeSplit})`}>
-                  {totalRate.toFixed(1)}
+            <div key={pos} className={`rounded-lg border px-3 py-2.5 ${POSITION_COLORS[pos]}`}>
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-sm">{pos}</span>
+                <span className="text-xs opacity-60">{count}×</span>
+              </div>
+
+              {/* Rate (active split) */}
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="opacity-60">Rate ({activeSplit})</span>
+                <span className={`font-semibold ${splitColor}`}>{totalRate.toFixed(1)}</span>
+              </div>
+
+              {/* Median Rate vs benchmark */}
+              <div className="flex items-center justify-between text-xs mb-1">
+                <span className="opacity-60">vs {benchmark}</span>
+                <span className="font-medium opacity-90">{totalMedianRate.toFixed(1)}</span>
+              </div>
+
+              {/* Positional SD */}
+              <div className="flex items-center justify-between text-xs mb-2">
+                <span className="opacity-60">σ</span>
+                <span className="opacity-80">{posSD.toFixed(2)}</span>
+              </div>
+
+              {/* Grade + probability */}
+              {grading && prob !== null ? (
+                <div className={`flex items-center justify-between rounded px-1.5 py-1 bg-black/20`}>
+                  <span className={`text-xs font-bold ${grading.color}`}>
+                    {grading.grade}
+                    <span className="font-normal opacity-70 ml-1">
+                      ({grading.delta >= 0 ? '+' : ''}{grading.delta.toFixed(1)})
+                    </span>
+                  </span>
+                  <span className={`text-xs font-semibold ${
+                    prob >= 0.70 ? 'text-emerald-300' :
+                    prob >= 0.55 ? 'text-lime-400'    :
+                    prob >= 0.40 ? 'text-yellow-400'  :
+                                   'text-red-400'
+                  }`}>
+                    {(prob * 100).toFixed(0)}%
+                  </span>
                 </div>
+              ) : (
+                <div className="text-xs opacity-30 text-center">no data</div>
               )}
             </div>
           )
         })}
       </div>
-      <p className="text-xs text-gray-600 -mt-1">Colored number = sum of Rate ({activeSplit}) for that position</p>
+      <p className="text-xs text-gray-600 -mt-1">
+        Cards: Rate ({activeSplit} split) · vs = benchmark · σ = positional SD = √Σσᵢ² · Grade &amp; P(↑) based on Median Rate
+      </p>
 
       {/* Stacks */}
       {stacks.length > 0 && (

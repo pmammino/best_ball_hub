@@ -3,6 +3,14 @@
 // QB has no round 1 data (QBs rarely taken round 1).
 // All picks in round 18+ use the round 18 benchmark.
 
+/** Team-level Rate thresholds per position (total across all starters at that slot). */
+export const POSITIONAL_BENCHMARKS: Record<string, number> = {
+  QB: 11,
+  RB: 27,
+  WR: 38,
+  TE: 9,
+}
+
 const BENCHMARKS: Record<string, Record<number, number>> = {
   QB: {
     2: 5,    3: 9.29, 4: 5.6,  5: 6.57, 6: 6,    7: 4.25,
