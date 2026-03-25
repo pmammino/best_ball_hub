@@ -2,6 +2,7 @@
 
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
+import { getAVRate, gradeRate, pickToRound } from '@/lib/roundBenchmarks'
 
 interface Props {
   entry: DraftEntry
@@ -59,8 +60,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
   for (const pick of entry.picks) {
     const pos = pick.player.position
     posSummary[pos].count += 1
-    const pred = getPred(pick.player.fullName)
-    const splitData = pred?.[activeSplit]
+    const splitData = getPred(pick.player.fullName)?.[activeSplit]
     if (splitData) posSummary[pos].totalRate += splitData.predRate
   }
 
@@ -115,7 +115,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                         <span className="text-sm text-white">{pick.player.fullName}</span>
                         <span className="text-xs text-gray-400">#{pick.pickNumber}</span>
                         {pred && (
-                          <span className={`text-xs font-medium ${splitColor}`} title={`AVG ${pred.predAVG.toFixed(1)}`}>
+                          <span className={`text-xs font-medium ${splitColor}`}>
                             {pred.predAVG.toFixed(1)}
                           </span>
                         )}
@@ -136,11 +136,14 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-900 border-b border-gray-800">
-                <th className="px-3 py-2 text-left text-gray-400 font-medium">#</th>
+                <th className="px-3 py-2 text-left text-gray-400 font-medium w-8">#</th>
                 <th className="px-3 py-2 text-left text-gray-400 font-medium">Player</th>
                 <th className="px-3 py-2 text-left text-gray-400 font-medium">Pos</th>
                 <th className="px-3 py-2 text-left text-gray-400 font-medium">NFL</th>
+                <th className="px-3 py-2 text-center text-gray-500 font-medium">Rd</th>
                 <th className={`px-3 py-2 text-right font-medium ${splitColor} opacity-80`}>Rate</th>
+                <th className="px-3 py-2 text-right text-gray-500 font-medium">Avg</th>
+                <th className="px-3 py-2 text-center text-gray-400 font-medium">Grade</th>
                 <th className={`px-3 py-2 text-right font-medium ${splitColor} opacity-80`}>AVG</th>
                 <th className={`px-3 py-2 text-right font-medium ${splitColor} opacity-80`}>Max</th>
               </tr>
@@ -149,13 +152,19 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
               {entry.picks.map((pick, i) => {
                 const isStacked = stackedTeams.includes(pick.player.nflTeam)
                 const pred = getPred(pick.player.fullName)?.[activeSplit]
+                const round = pickToRound(pick.pickNumber)
+                const avRate = getAVRate(pick.player.position, pick.pickNumber)
+                const grading = pred && avRate !== null
+                  ? gradeRate(pred.predRate, avRate)
+                  : null
+
                 return (
                   <tr
                     key={pick.player.appearance + pick.pickNumber}
-                    className={`border-b border-gray-800/50 ${isStacked ? 'bg-gray-800/40' : i % 2 === 0 ? 'bg-gray-900/20' : ''}`}
+                    className={`border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors ${isStacked ? 'bg-gray-800/40' : i % 2 === 0 ? 'bg-gray-900/20' : ''}`}
                   >
                     <td className="px-3 py-2 text-gray-500 tabular-nums">{pick.pickNumber}</td>
-                    <td className="px-3 py-2 text-white font-medium">
+                    <td className="px-3 py-2 text-white font-medium whitespace-nowrap">
                       {pick.player.fullName}
                       {isStacked && <span className="ml-1.5 text-xs text-indigo-400">stack</span>}
                     </td>
@@ -165,9 +174,31 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                       </span>
                     </td>
                     <td className="px-3 py-2 text-gray-300">{pick.player.nflTeam || '—'}</td>
+                    <td className="px-3 py-2 text-center text-gray-600 tabular-nums text-xs">{round}</td>
+
+                    {/* predRate vs benchmark */}
                     <td className={`px-3 py-2 text-right tabular-nums ${pred ? splitColor : 'text-gray-700'}`}>
                       {pred ? pred.predRate.toFixed(1) : '—'}
                     </td>
+                    <td className="px-3 py-2 text-right tabular-nums text-gray-500 text-xs">
+                      {avRate !== null ? avRate.toFixed(2) : '—'}
+                    </td>
+
+                    {/* Grade */}
+                    <td className="px-3 py-2 text-center">
+                      {grading ? (
+                        <span className={`inline-flex items-center gap-1 text-xs font-bold ${grading.color}`}>
+                          {grading.grade}
+                          <span className="font-normal opacity-70">
+                            ({grading.delta >= 0 ? '+' : ''}{grading.delta.toFixed(1)})
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-700 text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* AVG & Max */}
                     <td className={`px-3 py-2 text-right tabular-nums font-medium ${pred ? splitColor : 'text-gray-700'}`}>
                       {pred ? pred.predAVG.toFixed(1) : '—'}
                     </td>
@@ -179,6 +210,18 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Grade legend */}
+        <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-600">
+          <span className="text-gray-500 font-medium">Grade vs round avg:</span>
+          <span className="text-emerald-300">A+ ≥+50%</span>
+          <span className="text-green-400">A ≥+20%</span>
+          <span className="text-lime-400">B ≥−10%</span>
+          <span className="text-yellow-400">C ≥−30%</span>
+          <span className="text-orange-400">D ≥−50%</span>
+          <span className="text-red-400">F &lt;−50%</span>
+          <span className="ml-2">· Avg = position avg Rate for that round</span>
         </div>
       </div>
     </div>
