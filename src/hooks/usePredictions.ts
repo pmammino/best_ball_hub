@@ -1,6 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+
+export type PredSplit = 'C' | 'M' | 'F'
+
+export interface SplitPrediction {
+  games: number
+  predRate: number
+  predAVG: number
+  predMax: number
+}
 
 export interface PlayerPrediction {
   NFLNewsID: number
@@ -9,10 +18,9 @@ export interface PlayerPrediction {
   fullName: string
   position: string
   team: string
-  gamesPlayed: number
-  predRate: number
-  predAVG: number
-  predMax: number
+  C: SplitPrediction | null
+  M: SplitPrediction | null
+  F: SplitPrediction | null
 }
 
 export function usePredictions() {
@@ -33,5 +41,18 @@ export function usePredictions() {
       })
   }, [])
 
-  return { predictions, isLoading, error }
+  // Case-insensitive full-name lookup map
+  const predByName = useMemo<Map<string, PlayerPrediction>>(() => {
+    const map = new Map<string, PlayerPrediction>()
+    for (const p of predictions) {
+      map.set(p.fullName.toLowerCase(), p)
+    }
+    return map
+  }, [predictions])
+
+  function getPred(fullName: string): PlayerPrediction | undefined {
+    return predByName.get(fullName.toLowerCase())
+  }
+
+  return { predictions, predByName, getPred, isLoading, error }
 }

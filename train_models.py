@@ -1,6 +1,7 @@
 """
 Train gradient boosting models on season_stats.csv to predict Rate, AVG, Max.
-Apply to projections.csv (Split="C") and write public/predictions.json.
+Applies to all three splits (C=Ceiling, M=Median, F=Floor) in projections.csv.
+Outputs public/predictions.json — one entry per player with predictions for each split.
 """
 
 import json
@@ -35,6 +36,7 @@ SS_FEATS  = list(FEAT_MAP.keys())
 PRJ_FEATS = list(FEAT_MAP.values())
 TARGETS   = ["Rate", "AVG", "Max"]
 POSITIONS = ["QB", "RB", "WR", "TE"]
+SPLITS    = ["C", "M", "F"]
 
 # ── Prepare training data ─────────────────────────────────────────────────────
 train = ss[ss["position"].isin(POSITIONS)].copy()
@@ -44,7 +46,7 @@ train["pos_enc"] = le.transform(train["position"])
 
 X_cols = SS_FEATS + ["pos_enc"]
 
-# ── Train models ──────────────────────────────────────────────────────────────
+# ── Train one model per target ────────────────────────────────────────────────
 models = {}
 for target in TARGETS:
     X = train[X_cols].values
@@ -61,26 +63,55 @@ for target in TARGETS:
     print(f"  {target}: train R² = {r2:.3f}")
     models[target] = mdl
 
-# ── Apply to projections (Split="C" only) ────────────────────────────────────
+train_min = {t: train[t].min() for t in TARGETS}
+train_max = {t: train[t].max() for t in TARGETS}
+
+# ── Helper: predict one split dataframe ──────────────────────────────────────
+def predict_split(df: pd.DataFrame) -> dict:
+    df = df.copy()
+    df["pos_model"] = df["position"].replace("FB", "RB")
+    df = df[df["pos_model"].isin(POSITIONS)].copy()
+    df[PRJ_FEATS] = df[PRJ_FEATS].fillna(0)
+    df["pos_enc"] = le.transform(df["pos_model"])
+    X = df[PRJ_FEATS + ["pos_enc"]].values
+    result = {}
+    for target in TARGETS:
+        raw = models[target].predict(X)
+        result[target] = np.clip(raw, train_min[target], train_max[target])
+    # Return dict keyed by original index
+    out = {}
+    for i, idx in enumerate(df.index):
+        out[idx] = {
+            "games":   float(df.loc[idx, "GamesPlayed"]),
+            "predRate": round(float(result["Rate"][i]), 2),
+            "predAVG":  round(float(result["AVG"][i]), 2),
+            "predMax":  round(float(result["Max"][i]), 2),
+        }
+    return out
+
+split_preds = {}
+for split in SPLITS:
+    split_df = proj[proj["Split"] == split]
+    split_preds[split] = predict_split(split_df)
+    print(f"  Split {split}: {len(split_preds[split])} players predicted")
+
+# ── Build output — one entry per player (using C split as base identity) ─────
 c_proj = proj[proj["Split"] == "C"].copy()
-# Map FB to RB for model purposes
 c_proj["pos_model"] = c_proj["position"].replace("FB", "RB")
 c_proj = c_proj[c_proj["pos_model"].isin(POSITIONS)].copy()
-c_proj[PRJ_FEATS] = c_proj[PRJ_FEATS].fillna(0)
-c_proj["pos_enc"] = le.transform(c_proj["pos_model"])
 
-X_proj = c_proj[PRJ_FEATS + ["pos_enc"]].values
-
-predictions = {}
-for target in TARGETS:
-    raw = models[target].predict(X_proj)
-    # Clamp to training range
-    min_val, max_val = train[target].min(), train[target].max()
-    predictions[target] = np.clip(raw, min_val, max_val).tolist()
-
-# ── Build output ──────────────────────────────────────────────────────────────
 records = []
-for i, (idx, row) in enumerate(c_proj.iterrows()):
+for idx, row in c_proj.iterrows():
+    player_splits = {}
+    for split in SPLITS:
+        if idx in split_preds[split]:
+            player_splits[split] = split_preds[split][idx]
+        else:
+            # Try to find same player in other split by NFLNewsID
+            same = proj[(proj["NFLNewsID"] == row["NFLNewsID"]) & (proj["Split"] == split)]
+            if not same.empty:
+                player_splits[split] = predict_split(same).get(same.index[0], None)
+
     records.append({
         "NFLNewsID":  int(row["NFLNewsID"]),
         "firstName":  str(row["firstname"]),
@@ -88,15 +119,15 @@ for i, (idx, row) in enumerate(c_proj.iterrows()):
         "fullName":   f"{row['firstname']} {row['lastname']}",
         "position":   str(row["position"]),
         "team":       str(row["team"]) if pd.notna(row["team"]) and row["team"] != "NA" else "",
-        "gamesPlayed": float(row["GamesPlayed"]),
-        "predRate":   round(float(predictions["Rate"][i]), 2),
-        "predAVG":    round(float(predictions["AVG"][i]), 2),
-        "predMax":    round(float(predictions["Max"][i]), 2),
+        "C": player_splits.get("C"),
+        "M": player_splits.get("M"),
+        "F": player_splits.get("F"),
     })
 
 out_path = "public/predictions.json"
 with open(out_path, "w") as f:
     json.dump(records, f)
 
-print(f"\nWrote {len(records)} predictions → {out_path}")
-print("Sample:", records[:3])
+print(f"\nWrote {len(records)} player predictions ({len(SPLITS)} splits each) → {out_path}")
+sample = records[0]
+print(f"Sample: {sample['fullName']} | C:{sample['C']} | M:{sample['M']} | F:{sample['F']}")
