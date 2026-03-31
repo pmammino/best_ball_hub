@@ -11,38 +11,47 @@ interface Props {
   activeSplit: PredSplit
 }
 
-const POSITION_COLORS: Record<string, string> = {
-  QB: 'bg-red-900/50 text-red-300',
-  RB: 'bg-green-900/50 text-green-300',
-  WR: 'bg-blue-900/50 text-blue-300',
-  TE: 'bg-yellow-900/50 text-yellow-300',
+const POS_BADGE: Record<string, string> = {
+  QB: 'bg-red-900/60 text-red-300 border border-red-800/60',
+  RB: 'bg-green-900/60 text-green-300 border border-green-800/60',
+  WR: 'bg-blue-900/60 text-blue-300 border border-blue-800/60',
+  TE: 'bg-yellow-900/60 text-yellow-300 border border-yellow-800/60',
 }
 
-const SPLIT_LABEL: Record<PredSplit, string> = { C: 'Ceiling', M: 'Median', F: 'Floor' }
-const SPLIT_COLOR: Record<PredSplit, string> = {
-  C: 'text-amber-300',
-  M: 'text-emerald-300',
-  F: 'text-sky-300',
-}
+const SPLIT_COLOR: Record<PredSplit, string> = { C: '#fcd34d', M: '#6ee7b7', F: '#7dd3fc' }
 
-function sortExposures(exposures: PlayerExposure[], field: SortField, dir: SortDirection, getPred: Props['getPred'], split: PredSplit): PlayerExposure[] {
-  return [...exposures].sort((a, b) => {
+type ColKey = SortField | 'predRate' | 'predAVG' | 'predMax'
+
+type Col = { key: ColKey; label: string; right?: boolean; pred?: boolean }
+
+const COLS: Col[] = [
+  { key: 'name',          label: 'PLAYER'  },
+  { key: 'position',      label: 'POS'     },
+  { key: 'nflTeam',       label: 'NFL'     },
+  { key: 'count',         label: 'TEAMS',  right: true },
+  { key: 'exposurePct',   label: 'EXP %',  right: true },
+  { key: 'avgPickNumber', label: 'AVG PK', right: true },
+  { key: 'predRate',      label: 'RATE',   right: true, pred: true },
+  { key: 'predAVG',       label: 'AVG',    right: true, pred: true },
+  { key: 'predMax',       label: 'MAX',    right: true, pred: true },
+]
+
+function sort(rows: PlayerExposure[], field: ColKey, dir: SortDirection, getPred: Props['getPred'], split: PredSplit) {
+  return [...rows].sort((a, b) => {
     let av: string | number, bv: string | number
     if (field === 'predRate' || field === 'predAVG' || field === 'predMax') {
-      const ap = getPred(a.player.fullName)?.[split]
-      const bp = getPred(b.player.fullName)?.[split]
       const key = field as 'predRate' | 'predAVG' | 'predMax'
-      av = ap?.[key] ?? -1
-      bv = bp?.[key] ?? -1
+      av = getPred(a.player.fullName)?.[split]?.[key] ?? -1
+      bv = getPred(b.player.fullName)?.[split]?.[key] ?? -1
     } else {
-      switch (field) {
-        case 'name': av = a.player.fullName; bv = b.player.fullName; break
-        case 'position': av = a.player.position; bv = b.player.position; break
-        case 'nflTeam': av = a.player.nflTeam; bv = b.player.nflTeam; break
-        case 'count': av = a.count; bv = b.count; break
-        case 'exposurePct': av = a.exposurePct; bv = b.exposurePct; break
-        case 'avgPickNumber': av = a.avgPickNumber; bv = b.avgPickNumber; break
-        default: av = 0; bv = 0
+      switch (field as SortField) {
+        case 'name':          av = a.player.fullName;  bv = b.player.fullName;  break
+        case 'position':      av = a.player.position;  bv = b.player.position;  break
+        case 'nflTeam':       av = a.player.nflTeam;   bv = b.player.nflTeam;   break
+        case 'count':         av = a.count;             bv = b.count;            break
+        case 'exposurePct':   av = a.exposurePct;       bv = b.exposurePct;      break
+        case 'avgPickNumber': av = a.avgPickNumber;     bv = b.avgPickNumber;    break
+        default:              av = 0; bv = 0
       }
     }
     if (av < bv) return dir === 'asc' ? -1 : 1
@@ -51,126 +60,125 @@ function sortExposures(exposures: PlayerExposure[], field: SortField, dir: SortD
   })
 }
 
-type ColKey = SortField | 'predRate' | 'predAVG' | 'predMax'
-
-const BASE_COLS: Array<{ key: ColKey; label: string; align: 'left' | 'right' }> = [
-  { key: 'name',         label: 'Player',     align: 'left' },
-  { key: 'position',     label: 'Pos',        align: 'left' },
-  { key: 'nflTeam',      label: 'Team',       align: 'left' },
-  { key: 'count',        label: 'Teams',      align: 'right' },
-  { key: 'exposurePct',  label: 'Exposure %', align: 'right' },
-  { key: 'avgPickNumber',label: 'Avg Pick',   align: 'right' },
-  { key: 'predRate',     label: 'Rate',       align: 'right' },
-  { key: 'predAVG',      label: 'AVG',        align: 'right' },
-  { key: 'predMax',      label: 'Max',        align: 'right' },
-]
-
 export default function ExposureTable({ exposures, totalEntries, getPred, activeSplit }: Props) {
   const [sortField, setSortField] = useState<ColKey>('exposurePct')
-  const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  const [sortDir, setSortDir]     = useState<SortDirection>('desc')
 
-  function handleSort(field: ColKey) {
-    if (field === sortField) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    } else {
-      setSortField(field)
-      setSortDir(field === 'name' || field === 'position' || field === 'nflTeam' ? 'asc' : 'desc')
-    }
+  function handleSort(key: ColKey) {
+    if (key === sortField) { setSortDir(d => d === 'asc' ? 'desc' : 'asc') }
+    else { setSortField(key); setSortDir(key === 'name' || key === 'position' || key === 'nflTeam' ? 'asc' : 'desc') }
   }
 
-  const sorted = sortExposures(exposures, sortField as SortField, sortDir, getPred, activeSplit)
+  if (exposures.length === 0) return (
+    <div className="py-16 text-center text-xs uppercase tracking-widest" style={{ color: '#334155' }}>
+      No players match the current filters
+    </div>
+  )
 
-  if (exposures.length === 0) {
-    return <div className="text-center py-12 text-gray-500">No players match the current filters.</div>
-  }
+  const sorted = sort(exposures, sortField, sortDir, getPred, activeSplit)
+  const splitHex = SPLIT_COLOR[activeSplit]
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-800">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-gray-900 border-b border-gray-800">
-            {BASE_COLS.map((col) => {
-              const isPred = col.key === 'predRate' || col.key === 'predAVG' || col.key === 'predMax'
-              return (
-                <th
-                  key={col.key}
+    <div className="rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            {/* Prediction group header */}
+            <tr style={{ background: 'var(--navy-900)', borderBottom: '1px solid var(--border)' }}>
+              <td colSpan={6} style={{ padding: '4px 12px', color: '#334155', fontSize: '10px' }} />
+              <td colSpan={3} style={{ padding: '4px 12px', textAlign: 'right', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: splitHex, opacity: 0.7 }}>
+                {activeSplit === 'C' ? 'CEILING' : activeSplit === 'M' ? 'MEDIAN' : 'FLOOR'} PROJECTION
+              </td>
+            </tr>
+            <tr style={{ background: 'var(--navy-800)', borderBottom: '1px solid var(--border)' }}>
+              {COLS.map(col => (
+                <th key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className={`px-4 py-3 font-medium cursor-pointer select-none hover:text-white transition-colors whitespace-nowrap ${
-                    col.align === 'right' ? 'text-right' : 'text-left'
-                  } ${isPred ? SPLIT_COLOR[activeSplit] + ' opacity-80' : 'text-gray-400'}`}
+                  style={{
+                    padding: '8px 12px',
+                    textAlign: col.right ? 'right' : 'left',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    fontWeight: 700,
+                    letterSpacing: '0.07em',
+                    fontSize: '10px',
+                    color: col.pred
+                      ? sortField === col.key ? splitHex : '#475569'
+                      : sortField === col.key ? '#94a3b8' : '#475569',
+                    whiteSpace: 'nowrap',
+                    borderRight: col.key === 'avgPickNumber' ? '1px solid var(--border)' : undefined,
+                    borderLeft: col.key === 'predRate' ? '1px solid var(--border)' : undefined,
+                  }}
                 >
-                  <span className={`flex items-center gap-1 ${col.align === 'right' ? 'justify-end' : ''}`}>
-                    {col.label}
-                    {isPred && <span className="text-xs opacity-50">({activeSplit})</span>}
-                    {sortField === col.key && (
-                      <span className="text-indigo-400">{sortDir === 'asc' ? '↑' : '↓'}</span>
-                    )}
-                  </span>
+                  {col.label}
+                  {sortField === col.key && <span style={{ marginLeft: 3, color: '#3b82f6' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
                 </th>
-              )
-            })}
-          </tr>
-          {/* Split label sub-row for pred columns */}
-          <tr className="bg-gray-900/60 border-b border-gray-800 text-xs text-gray-600">
-            <td colSpan={6} className="px-4 py-1" />
-            <td colSpan={3} className={`px-4 py-1 text-right ${SPLIT_COLOR[activeSplit]} opacity-60`}>
-              {SPLIT_LABEL[activeSplit]} projections
-            </td>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((exp, i) => {
-            const pred = getPred(exp.player.fullName)
-            const splitData = pred?.[activeSplit]
-            return (
-              <tr
-                key={exp.player.appearance}
-                className={`border-b border-gray-800/50 hover:bg-gray-800/40 transition-colors ${i % 2 === 0 ? 'bg-gray-900/20' : ''}`}
-              >
-                <td className="px-4 py-2.5 font-medium text-white whitespace-nowrap">{exp.player.fullName}</td>
-                <td className="px-4 py-2.5">
-                  <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${POSITION_COLORS[exp.player.position] ?? 'bg-gray-700 text-gray-300'}`}>
-                    {exp.player.position}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-gray-300">{exp.player.nflTeam || '—'}</td>
-                <td className="px-4 py-2.5 text-right text-gray-300 tabular-nums">{exp.count}/{totalEntries}</td>
-                <td className="px-4 py-2.5 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <div className="w-20 h-2 bg-gray-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${exp.exposurePct}%` }} />
-                    </div>
-                    <span className="text-white font-medium w-10 text-right tabular-nums">
-                      {exp.exposurePct.toFixed(0)}%
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((exp, i) => {
+              const pred = getPred(exp.player.fullName)
+              const sd = pred?.[activeSplit]
+              return (
+                <tr key={exp.player.appearance}
+                  style={{
+                    background: i % 2 === 0 ? 'var(--navy-900)' : 'var(--navy-950)',
+                    borderBottom: '1px solid var(--border)',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-700)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'var(--navy-900)' : 'var(--navy-950)')}
+                >
+                  <td style={{ padding: '7px 12px', fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap' }}>
+                    {exp.player.fullName}
+                  </td>
+                  <td style={{ padding: '7px 12px' }}>
+                    <span className={`grade-badge text-[10px] ${POS_BADGE[exp.player.position] ?? 'bg-slate-700 text-slate-300'}`}>
+                      {exp.player.position}
                     </span>
-                  </div>
-                </td>
-                <td className="px-4 py-2.5 text-right text-gray-400 tabular-nums">{exp.avgPickNumber.toFixed(1)}</td>
-
-                {/* Prediction columns */}
-                <td className="px-4 py-2.5 text-right">
-                  {splitData ? (
-                    <div className="flex items-center justify-end gap-1.5">
-                      <div className="w-12 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-violet-500 rounded-full" style={{ width: `${(splitData.predRate / 20) * 100}%` }} />
+                  </td>
+                  <td style={{ padding: '7px 12px', color: '#64748b' }}>{exp.player.nflTeam || '—'}</td>
+                  <td style={{ padding: '7px 12px', textAlign: 'right', color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                    {exp.count}/{totalEntries}
+                  </td>
+                  <td style={{ padding: '7px 12px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                      <div style={{ width: 56, height: 4, background: 'var(--navy-700)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${exp.exposurePct}%`, background: '#3b82f6', borderRadius: 2 }} />
                       </div>
-                      <span className={`tabular-nums font-medium w-8 text-right ${SPLIT_COLOR[activeSplit]}`}>
-                        {splitData.predRate.toFixed(1)}
+                      <span style={{ color: '#e2e8f0', fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right' }}>
+                        {exp.exposurePct.toFixed(0)}%
                       </span>
                     </div>
-                  ) : <span className="text-gray-700">—</span>}
-                </td>
-                <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${splitData ? SPLIT_COLOR[activeSplit] : 'text-gray-700'}`}>
-                  {splitData ? splitData.predAVG.toFixed(1) : '—'}
-                </td>
-                <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${splitData ? SPLIT_COLOR[activeSplit] : 'text-gray-700'}`}>
-                  {splitData ? splitData.predMax.toFixed(1) : '—'}
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+                  </td>
+                  <td style={{ padding: '7px 12px', textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>
+                    {exp.avgPickNumber.toFixed(1)}
+                  </td>
+                  {/* Prediction columns */}
+                  <td style={{ padding: '7px 12px', textAlign: 'right', borderLeft: '1px solid var(--border)' }}>
+                    {sd ? (
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                        <div style={{ width: 36, height: 3, background: 'var(--navy-700)', borderRadius: 2, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(sd.predRate / 20) * 100}%`, background: splitHex, borderRadius: 2, opacity: 0.7 }} />
+                        </div>
+                        <span style={{ color: splitHex, fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 28, textAlign: 'right' }}>
+                          {sd.predRate.toFixed(1)}
+                        </span>
+                      </div>
+                    ) : <span style={{ color: '#1e293b' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '7px 12px', textAlign: 'right', color: sd ? splitHex : '#1e293b', fontWeight: sd ? 600 : 400, fontVariantNumeric: 'tabular-nums' }}>
+                    {sd ? sd.predAVG.toFixed(1) : '—'}
+                  </td>
+                  <td style={{ padding: '7px 12px', textAlign: 'right', color: sd ? splitHex : '#1e293b', fontVariantNumeric: 'tabular-nums', opacity: sd ? 0.85 : 1 }}>
+                    {sd ? sd.predMax.toFixed(1) : '—'}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
