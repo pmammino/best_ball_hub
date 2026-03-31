@@ -49,10 +49,10 @@ export default function ExposureDashboard() {
     <div className="min-h-screen" style={{ background: 'var(--navy-950)' }}>
 
       {/* Top accent bar */}
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #1d4ed8 0%, #3b82f6 50%, #1d4ed8 100%)' }} />
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #5b21b6 0%, #8b5cf6 50%, #5b21b6 100%)' }} />
 
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b" style={{ background: 'var(--navy-900)', borderColor: 'var(--border)' }}>
+      <header className="sticky top-0 z-20 border-b" style={{ background: '#000000', borderColor: '#1a1a2e' }}>
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6">
 
           {/* Top row: logo + upload */}
@@ -60,7 +60,7 @@ export default function ExposureDashboard() {
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <div className="w-7 h-7 rounded flex items-center justify-center text-white font-black text-xs" style={{ background: 'var(--accent)' }}>BB</div>
-                <span className="font-bold text-white text-base tracking-tight">BestBall <span className="text-blue-400">Hub</span></span>
+                <span className="font-bold text-white text-base tracking-tight">BestBall <span style={{ color: '#a78bfa' }}>Hub</span></span>
               </div>
               {data && (
                 <span className="hidden sm:block text-xs px-2 py-0.5 rounded-full border" style={{ color: '#64748b', borderColor: 'var(--border-light)', background: 'var(--navy-800)' }}>
@@ -118,7 +118,7 @@ export default function ExposureDashboard() {
         {isLoading ? (
           <div className="flex items-center justify-center py-40">
             <div className="text-center space-y-3">
-              <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+              <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#8b5cf6', borderTopColor: 'transparent' }} />
               <p className="text-xs uppercase tracking-widest" style={{ color: '#475569' }}>Loading data…</p>
             </div>
           </div>

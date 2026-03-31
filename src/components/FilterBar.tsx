@@ -9,7 +9,7 @@ const POS_ACTIVE: Record<string, string> = {
   RB: 'bg-green-900/50 text-green-300 border-green-700/60',
   WR: 'bg-blue-900/50 text-blue-300 border-blue-700/60',
   TE: 'bg-yellow-900/50 text-yellow-300 border-yellow-700/60',
-  ALL: 'text-blue-300 border-blue-700/60',
+  ALL: 'text-violet-300 border-violet-700/60',
 }
 
 interface Props {
