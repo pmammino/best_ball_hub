@@ -266,7 +266,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
           </div>
 
           <p style={{ fontSize: 10, color: '#1e293b', marginTop: 0 }}>
-            50k simulations · best ball lineup (1QB+2RB+3WR+1TE+1FLEX) · μ=Median · σ=(C−F)/1.349
+            50k simulations · best ball lineup (1QB+2RB+3WR+1TE+1FLEX) · μ=M.AVG · σ=avg(MAX−AVG) across C/M/F
           </p>
         </div>
       </div>

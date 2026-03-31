@@ -25,14 +25,18 @@ export function simulateBestBall(
   threshold = 180,
   sims = 50_000,
 ): SimResult {
-  // Build per-player params: use M as mean, (C-F)/1.349 as sigma
+  // Build per-player params:
+  //   mean  = M.predAVG (median projection)
+  //   sigma = average of (predMax − predAVG) across all available splits (C/M/F)
   type PlayerParam = { pos: string; mean: number; sigma: number }
   const players: PlayerParam[] = picks.map(pick => {
-    const pred = getPred(pick.player.fullName)
-    const mean  = pred?.M?.predAVG ?? 0
-    const c     = pred?.C?.predAVG ?? mean
-    const f     = pred?.F?.predAVG ?? mean
-    const sigma = Math.max((c - f) / 1.349, mean * 0.25, 0.01)
+    const pred   = getPred(pick.player.fullName)
+    const mean   = pred?.M?.predAVG ?? 0
+    const splits = [pred?.C, pred?.M, pred?.F].filter((s): s is NonNullable<typeof s> => !!s)
+    const diffs  = splits.map(s => s.predMax - s.predAVG)
+    const sigma  = diffs.length > 0
+      ? Math.max(diffs.reduce((a, b) => a + b, 0) / diffs.length, 0.01)
+      : Math.max(mean * 0.5, 0.01)
     return { pos: pick.player.position, mean, sigma }
   })
 
