@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS } from '@/lib/roundBenchmarks'
@@ -57,6 +58,12 @@ function GradeBadge({ grade }: { grade: string }) {
 }
 
 export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
+  const [posFilter, setPosFilter] = useState<Position | null>(null)
+
+  function togglePosFilter(pos: Position) {
+    setPosFilter(prev => prev === pos ? null : pos)
+  }
+
   // Stacks
   const stackMap = new Map<string, Pick[]>()
   for (const pick of entry.picks) {
@@ -113,12 +120,29 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
               : totalMedianRate > benchmark ? 1 : totalMedianRate > 0 ? 0 : null
             const c = POS_COLORS[pos]
 
+            const isActive = posFilter === pos
             return (
-              <div key={pos} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: '10px 10px 8px' }}>
+              <button
+                key={pos}
+                onClick={() => togglePosFilter(pos)}
+                title={isActive ? 'Click to show all' : `Filter roster to ${pos}`}
+                style={{
+                  background: c.bg,
+                  border: `1px solid ${isActive ? c.text : c.border}`,
+                  borderRadius: 6,
+                  padding: '10px 10px 8px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  outline: isActive ? `2px solid ${c.text}40` : 'none',
+                  outlineOffset: 1,
+                  width: '100%',
+                  transition: 'border-color 0.15s, outline 0.15s',
+                }}
+              >
                 {/* Pos + count */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: 800, color: c.text, letterSpacing: '0.04em' }}>{pos}</span>
-                  <span style={{ fontSize: 10, color: c.dim, fontWeight: 700 }}>{count}×</span>
+                  <span style={{ fontSize: 10, color: isActive ? c.text : c.dim, fontWeight: 700 }}>{isActive ? '▾' : `${count}×`}</span>
                 </div>
 
                 {/* Rate (split) */}
@@ -155,7 +179,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                     no data
                   </div>
                 )}
-              </div>
+              </button>
             )
           })}
         </div>
@@ -200,7 +224,19 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
 
       {/* Roster table */}
       <div>
-        <div className="section-header mb-2">Full Roster</div>
+        <div className="section-header mb-2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          Full Roster
+          {posFilter && (
+            <>
+              <span style={{ fontSize: 10, color: POS_COLORS[posFilter].text, fontWeight: 700, letterSpacing: '0.06em', background: POS_COLORS[posFilter].bg, border: `1px solid ${POS_COLORS[posFilter].border}`, borderRadius: 3, padding: '1px 6px' }}>
+                {posFilter}
+              </span>
+              <button onClick={() => setPosFilter(null)} style={{ fontSize: 9, color: '#475569', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}>
+                × clear
+              </button>
+            </>
+          )}
+        </div>
         <div style={{ borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
@@ -221,7 +257,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {entry.picks.map((pick, i) => {
+                {entry.picks.filter(p => !posFilter || p.player.position === posFilter).map((pick, i) => {
                   const predEntry = getPred(pick.player.fullName)
                   const pred      = predEntry?.[activeSplit]
                   const round     = pickToRound(pick.pickNumber)
