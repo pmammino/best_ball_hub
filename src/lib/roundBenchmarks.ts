@@ -5,10 +5,10 @@
 
 /** Team-level Rate thresholds per position (total across all starters at that slot). */
 export const POSITIONAL_BENCHMARKS: Record<string, number> = {
-  QB: 13,
-  RB: 32,
-  WR: 44,
-  TE: 11,
+  QB: 11,
+  RB: 30,
+  WR: 40,
+  TE: 10,
 }
 
 const BENCHMARKS: Record<string, Record<number, number>> = {
