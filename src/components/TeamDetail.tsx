@@ -202,7 +202,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
 
       {/* Weekly score simulation */}
       <div>
-        <div className="section-header mb-2">Weekly Lineup Projection</div>
+        <div className="section-header mb-2">Weekly Ceiling Lineup Projection</div>
         <div style={{ background: 'var(--navy-900)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
           {/* Top row: prob badge + expected score */}
