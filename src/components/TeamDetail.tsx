@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS } from '@/lib/roundBenchmarks'
+import { simulateBestBall } from '@/lib/simulateBestBall'
 
 interface Props {
   entry: DraftEntry
@@ -98,6 +99,17 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
 
   const sc = SPLIT_COLOR[activeSplit]
 
+  const THRESHOLD = 180
+  const sim = useMemo(
+    () => simulateBestBall(entry.picks, getPred, THRESHOLD),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [entry.picks, getPred],
+  )
+
+  const probPct    = Math.round(sim.probability * 100)
+  const probColor  = probPct >= 30 ? '#10b981' : probPct >= 15 ? '#84cc16' : probPct >= 7 ? '#f59e0b' : '#ef4444'
+  const probBg     = probPct >= 30 ? '#052e16' : probPct >= 15 ? '#1a2e05' : probPct >= 7 ? '#451a03' : '#450a0a'
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -186,6 +198,77 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
         <p style={{ fontSize: 10, color: '#1e293b', marginTop: 5 }}>
           Grade &amp; P(↑) based on Median Rate · σ = √Σσᵢ² · benchmarks QB {POSITIONAL_BENCHMARKS.QB} / RB {POSITIONAL_BENCHMARKS.RB} / WR {POSITIONAL_BENCHMARKS.WR} / TE {POSITIONAL_BENCHMARKS.TE}
         </p>
+      </div>
+
+      {/* Weekly score simulation */}
+      <div>
+        <div className="section-header mb-2">Weekly Lineup Projection</div>
+        <div style={{ background: 'var(--navy-900)', border: '1px solid var(--border)', borderRadius: 6, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+          {/* Top row: prob badge + expected score */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ fontSize: 10, color: '#475569', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>P(≥{THRESHOLD} pts)</span>
+              <span style={{
+                fontSize: 22, fontWeight: 900, color: probColor,
+                background: probBg, border: `1px solid ${probColor}40`,
+                borderRadius: 6, padding: '2px 12px', letterSpacing: '-0.01em',
+              }}>
+                {probPct}%
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 14 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#334155', fontWeight: 600, letterSpacing: '0.06em' }}>EXP</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }}>{sim.expectedScore.toFixed(1)}</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#334155', fontWeight: 600, letterSpacing: '0.06em' }}>MED</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0', fontVariantNumeric: 'tabular-nums' }}>{sim.medianScore.toFixed(1)}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Distribution bar */}
+          <div>
+            <div style={{ position: 'relative', height: 22, borderRadius: 4, background: 'var(--navy-800)', overflow: 'visible' }}>
+              {/* filled range P10→P90 */}
+              {(() => {
+                const scale = 240  // display range: 0–240 pts
+                const p10x  = Math.min((sim.p10  / scale) * 100, 100)
+                const p90x  = Math.min((sim.p90  / scale) * 100, 100)
+                const p25x  = Math.min((sim.p25  / scale) * 100, 100)
+                const p75x  = Math.min((sim.p75  / scale) * 100, 100)
+                const medx  = Math.min((sim.medianScore / scale) * 100, 100)
+                const thx   = Math.min((THRESHOLD / scale) * 100, 100)
+                return (
+                  <>
+                    {/* P10-P90 light band */}
+                    <div style={{ position: 'absolute', top: 4, bottom: 4, left: `${p10x}%`, width: `${p90x - p10x}%`, background: '#1e293b', borderRadius: 3 }} />
+                    {/* P25-P75 band */}
+                    <div style={{ position: 'absolute', top: 2, bottom: 2, left: `${p25x}%`, width: `${p75x - p25x}%`, background: '#334155', borderRadius: 3 }} />
+                    {/* Median tick */}
+                    <div style={{ position: 'absolute', top: 0, bottom: 0, left: `${medx}%`, width: 2, background: '#94a3b8', borderRadius: 1 }} />
+                    {/* Threshold line */}
+                    <div style={{ position: 'absolute', top: -4, bottom: -4, left: `${thx}%`, width: 2, background: probColor, borderRadius: 1, zIndex: 2 }}>
+                      <span style={{ position: 'absolute', top: -14, left: -10, fontSize: 9, color: probColor, fontWeight: 700, whiteSpace: 'nowrap' }}>{THRESHOLD}</span>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+            {/* Axis labels */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#334155', marginTop: 3, paddingLeft: 2, paddingRight: 2 }}>
+              <span>0</span>
+              <span style={{ color: '#475569' }}>P10: {sim.p10.toFixed(0)} · P25: {sim.p25.toFixed(0)} · MED: {sim.medianScore.toFixed(0)} · P75: {sim.p75.toFixed(0)} · P90: {sim.p90.toFixed(0)}</span>
+              <span>240</span>
+            </div>
+          </div>
+
+          <p style={{ fontSize: 10, color: '#1e293b', marginTop: 0 }}>
+            50k simulations · best ball lineup (1QB+2RB+3WR+1TE+1FLEX) · μ=Median · σ=(C−F)/1.349
+          </p>
+        </div>
       </div>
 
       {/* Stacks */}
