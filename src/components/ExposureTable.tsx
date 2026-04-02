@@ -9,6 +9,8 @@ interface Props {
   totalEntries: number
   getPred: (fullName: string) => PlayerPrediction | undefined
   activeSplit: PredSplit
+  comboNames?: string[]
+  onAddToCombo?: (name: string) => void
 }
 
 const POS_BADGE: Record<string, string> = {
@@ -60,7 +62,7 @@ function sort(rows: PlayerExposure[], field: ColKey, dir: SortDirection, getPred
   })
 }
 
-export default function ExposureTable({ exposures, totalEntries, getPred, activeSplit }: Props) {
+export default function ExposureTable({ exposures, totalEntries, getPred, activeSplit, comboNames = [], onAddToCombo }: Props) {
   const [sortField, setSortField] = useState<ColKey>('exposurePct')
   const [sortDir, setSortDir]     = useState<SortDirection>('desc')
 
@@ -130,7 +132,18 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
                   onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? 'var(--navy-900)' : 'var(--navy-950)')}
                 >
                   <td style={{ padding: '7px 12px', fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap' }}>
-                    {exp.player.fullName}
+                    {onAddToCombo ? (
+                      <button
+                        onClick={() => onAddToCombo(exp.player.fullName)}
+                        title={comboNames.includes(exp.player.fullName) ? 'In combo' : 'Add to combo'}
+                        style={{ background: 'none', border: 'none', cursor: comboNames.includes(exp.player.fullName) ? 'default' : 'pointer', padding: 0, color: 'inherit', fontWeight: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                      >
+                        {exp.player.fullName}
+                        <span style={{ fontSize: 10, color: comboNames.includes(exp.player.fullName) ? '#7c3aed' : '#334155', fontWeight: 700 }}>
+                          {comboNames.includes(exp.player.fullName) ? '●' : '+'}
+                        </span>
+                      </button>
+                    ) : exp.player.fullName}
                   </td>
                   <td style={{ padding: '7px 12px' }}>
                     <span className={`grade-badge text-[10px] ${POS_BADGE[exp.player.position] ?? 'bg-slate-700 text-slate-300'}`}>

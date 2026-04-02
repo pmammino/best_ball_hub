@@ -8,6 +8,7 @@ import FilterBar from './FilterBar'
 import ExposureTable from './ExposureTable'
 import TeamList from './TeamList'
 import TeamDetail from './TeamDetail'
+import PlayerComboPanel from './PlayerComboPanel'
 
 type TeamsMode = 'hidden' | 'sidebar' | 'full'
 
@@ -34,6 +35,14 @@ export default function ExposureDashboard() {
 
   const [teamsMode, setTeamsMode] = useState<TeamsMode>('sidebar')
   const [activeSplit, setActiveSplit] = useState<PredSplit>('M')
+  const [comboNames, setComboNames] = useState<string[]>([])
+
+  function addComboPlayer(name: string) {
+    setComboNames(prev => prev.includes(name) ? prev : [...prev, name])
+  }
+  function removeComboPlayer(name: string) {
+    setComboNames(prev => prev.filter(n => n !== name))
+  }
 
   const isLoading = draftLoading || predLoading
   const error = draftError || predError
@@ -149,6 +158,8 @@ export default function ExposureDashboard() {
                   }
                   getPred={getPred}
                   activeSplit={activeSplit}
+                  comboNames={comboNames}
+                  onAddToCombo={addComboPlayer}
                 />
               </div>
             )}
@@ -179,6 +190,22 @@ export default function ExposureDashboard() {
                 ) : null}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Player combo panel — always shown below main grid when data loaded */}
+        {data && (
+          <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
+            <PlayerComboPanel
+              entries={data.entries}
+              allExposures={data.exposures}
+              comboNames={comboNames}
+              onAdd={addComboPlayer}
+              onRemove={removeComboPlayer}
+              onClear={() => setComboNames([])}
+              getPred={getPred}
+              activeSplit={activeSplit}
+            />
           </div>
         )}
       </main>
