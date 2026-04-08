@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
-import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS } from '@/lib/roundBenchmarks'
+import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS, roundPercentile } from '@/lib/roundBenchmarks'
 import { simulateBestBall } from '@/lib/simulateBestBall'
 
 interface Props {
@@ -99,7 +99,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
 
   const sc = SPLIT_COLOR[activeSplit]
 
-  const THRESHOLD = 180
+  const THRESHOLD = 160
   const sim = useMemo(
     () => simulateBestBall(entry.picks, getPred, THRESHOLD),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,7 +266,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
           </div>
 
           <p style={{ fontSize: 10, color: '#1e293b', marginTop: 0 }}>
-            50k simulations · best ball lineup (1QB+2RB+3WR+1TE+1FLEX) · μ=M.AVG · σ=avg(MAX−AVG) across C/M/F
+            50k sims · best ball (1QB+2RB+3WR+1TE+1FLEX) · μ=M.AVG · σ=avg(MAX−AVG) across C/M/F · threshold {THRESHOLD} pts
           </p>
         </div>
       </div>
@@ -325,14 +325,14 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
             <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--navy-800)', borderBottom: '1px solid var(--border)' }}>
-                  {['#','PLAYER','POS','NFL','RD','RATE','AVG(BENCH)','GRADE','P(↑)','AVG','MAX'].map((h, i) => (
+                  {['#','PLAYER','POS','NFL','RD','RATE','AVG(BENCH)','GRADE','PCTILE','P(↑)','AVG','MAX'].map((h, i) => (
                     <th key={i} style={{
                       padding: '7px 10px',
                       textAlign: i >= 5 ? 'right' : i === 3 || i === 4 ? 'center' : 'left',
                       fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
                       color: i >= 5 ? '#475569' : '#334155',
                       whiteSpace: 'nowrap',
-                      borderRight: (i === 4 || i === 8) ? '1px solid var(--border)' : undefined,
+                      borderRight: (i === 4 || i === 9) ? '1px solid var(--border)' : undefined,
                     }}>
                       {h}
                     </th>
@@ -346,6 +346,7 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                   const round     = pickToRound(pick.pickNumber)
                   const avRate    = getAVRate(pick.player.position, pick.pickNumber)
                   const grading   = pred && avRate !== null ? gradeRate(pred.predRate, avRate) : null
+                  const pctile    = pred && avRate !== null ? roundPercentile(pred.predRate, avRate) : null
                   const medRate   = predEntry?.M?.predRate ?? null
                   const stdDev    = predEntry?.stdDev ?? null
                   const prob      = medRate !== null && stdDev !== null && avRate !== null
@@ -393,6 +394,19 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
                             </span>
                           </div>
                         ) : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
+                      </td>
+
+                      {/* Percentile */}
+                      <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+                        {pctile !== null ? (() => {
+                          const ordinal = (n: number) => {
+                            const s = ['th','st','nd','rd']
+                            const v = n % 100
+                            return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
+                          }
+                          const color = pctile >= 75 ? '#10b981' : pctile >= 50 ? '#84cc16' : pctile >= 25 ? '#f59e0b' : '#ef4444'
+                          return <span style={{ color, fontWeight: 700, fontSize: 10, fontVariantNumeric: 'tabular-nums' }}>{ordinal(pctile)}</span>
+                        })() : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
                       </td>
 
                       {/* P(↑) */}

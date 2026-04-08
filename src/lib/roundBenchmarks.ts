@@ -87,7 +87,37 @@ export function exceedProb(
 }
 
 /**
- * Grades a player's predicted Rate vs. the positional round benchmark.
+ * Percentile rank of a player's projected Rate within their positional round peers.
+ *
+ * Uses a power distribution F(x) = (x / 17)^α fitted to three anchor points:
+ *   0      → 0th percentile  (floor: zero usable weeks)
+ *   avRate → 50th percentile (round median from historical AVRate data)
+ *   17     → 100th percentile (ceiling: 17 usable weeks)
+ *
+ * The exponent α is solved analytically from F(avRate) = 0.5:
+ *   α = ln(0.5) / ln(avRate / 17)
+ *
+ * This produces a right-skewed distribution for below-median avRate values
+ * (early concentration of mass at low values, long right tail) and
+ * left-skewed for above-median avRate, matching the intuitive expectation
+ * that high-round picks rarely hit their ceiling.
+ *
+ * Returns an integer percentile in [0, 100], or null if avRate is invalid.
+ */
+export function roundPercentile(predRate: number, avRate: number): number | null {
+  if (!isFinite(avRate) || avRate <= 0 || avRate >= 17) return null
+
+  const MAX = 17
+  const x   = Math.max(0, Math.min(MAX, predRate))
+
+  // α solved from F(avRate) = 0.5: (avRate/17)^α = 0.5
+  const alpha = Math.log(0.5) / Math.log(avRate / MAX)
+
+  const raw = Math.pow(x / MAX, alpha)
+  return Math.round(Math.max(0, Math.min(100, raw * 100)))
+}
+
+/**
  * Returns the delta (predRate - AVRate) and a letter grade.
  */
 export function gradeRate(predRate: number, avRate: number): {

@@ -22,7 +22,7 @@ function randn(): number {
 export function simulateBestBall(
   picks: Pick[],
   getPred: (name: string) => PlayerPrediction | undefined,
-  threshold = 180,
+  threshold = 160,
   sims = 50_000,
 ): SimResult {
   // Build per-player params:
