@@ -101,7 +101,7 @@ export function toTier(percentile: number): Tier {
 
 /** Colour tokens for each tier. */
 export const TIER_STYLE: Record<Tier, { text: string; bg: string; border: string }> = {
-  'A+': { text: '#fbbf24', bg: '#422006', border: '#fbbf2450' }, // gold — top tier
+  'A+': { text: '#4ade80', bg: '#042318', border: '#4ade8050' }, // vivid green — top tier
   'A' : { text: '#34d399', bg: '#022c22', border: '#34d39950' }, // bright emerald
   'A-': { text: '#10b981', bg: '#052e16', border: '#10b98150' }, // emerald
   'B+': { text: '#22c55e', bg: '#052614', border: '#22c55e50' }, // green
