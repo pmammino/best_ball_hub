@@ -6,7 +6,7 @@ import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS, roundPercentile } from '@/lib/roundBenchmarks'
 import { simulateBestBall } from '@/lib/simulateBestBall'
 import { TeamScore } from '@/hooks/useTeamScores'
-import { Tier } from '@/lib/scoreTeam'
+import { TIER_STYLE } from '@/lib/scoreTeam'
 
 interface Props {
   entry: DraftEntry
@@ -21,15 +21,6 @@ const POS_COLORS: Record<string, { bg: string; text: string; border: string; dim
   RB: { bg: '#0f1a0f', text: '#4ade80', border: '#14532d', dim: '#166534' },
   WR: { bg: '#0f1020', text: '#60a5fa', border: '#1e3a5f', dim: '#1d4ed8' },
   TE: { bg: '#1a150a', text: '#fbbf24', border: '#78350f', dim: '#92400e' },
-}
-
-const TIER_STYLE: Record<Tier, { text: string; bg: string; border: string }> = {
-  S: { text: '#fbbf24', bg: '#422006', border: '#fbbf2440' },
-  A: { text: '#34d399', bg: '#052e16', border: '#34d39940' },
-  B: { text: '#a3e635', bg: '#1a2e05', border: '#a3e63540' },
-  C: { text: '#fbbf24', bg: '#451a03', border: '#fbbf2440' },
-  D: { text: '#fb923c', bg: '#431407', border: '#fb923c40' },
-  F: { text: '#f87171', bg: '#450a0a', border: '#f8717140' },
 }
 
 function ordinal(n: number): string {

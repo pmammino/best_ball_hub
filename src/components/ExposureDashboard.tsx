@@ -11,7 +11,13 @@ import TeamList from './TeamList'
 import TeamDetail from './TeamDetail'
 import PlayerComboPanel from './PlayerComboPanel'
 
-type TeamsMode = 'hidden' | 'sidebar' | 'full'
+type Tab = 'teams' | 'exposures' | 'combo'
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: 'teams',     label: 'Teams'     },
+  { key: 'exposures', label: 'Exposures' },
+  { key: 'combo',     label: 'Combo'     },
+]
 
 const SPLITS: { key: PredSplit; label: string }[] = [
   { key: 'C', label: 'Ceiling' },
@@ -35,9 +41,9 @@ export default function ExposureDashboard() {
   const { getPred, isLoading: predLoading, error: predError } = usePredictions()
   const teamScores = useTeamScores(data?.entries ?? [], getPred)
 
-  const [teamsMode, setTeamsMode] = useState<TeamsMode>('sidebar')
+  const [activeTab,   setActiveTab]   = useState<Tab>('teams')
   const [activeSplit, setActiveSplit] = useState<PredSplit>('M')
-  const [comboNames, setComboNames] = useState<string[]>([])
+  const [comboNames,  setComboNames]  = useState<string[]>([])
 
   function addComboPlayer(name: string) {
     setComboNames(prev => prev.includes(name) ? prev : [...prev, name])
@@ -48,13 +54,6 @@ export default function ExposureDashboard() {
 
   const isLoading = draftLoading || predLoading
   const error = draftError || predError
-
-  function cycleTeams() {
-    setTeamsMode(m => m === 'hidden' ? 'sidebar' : m === 'sidebar' ? 'full' : 'hidden')
-  }
-
-  const teamsLabel = teamsMode === 'hidden' ? 'Show Teams' : teamsMode === 'sidebar' ? 'Expand' : 'Collapse'
-  const teamsIcon  = teamsMode === 'hidden' ? '▸' : teamsMode === 'sidebar' ? '⤢' : '⤡'
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--navy-950)' }}>
@@ -82,8 +81,33 @@ export default function ExposureDashboard() {
             <CsvUpload onFileLoaded={loadFromFile} onReset={resetToDefault} usingDefault={usingDefault} />
           </div>
 
-          {/* Controls row */}
-          <div className="flex items-center gap-3 pb-2.5 flex-wrap">
+          {/* Nav row: tabs + split pills */}
+          <div className="flex items-center justify-between pb-2.5 gap-4 flex-wrap">
+
+            {/* Tab pills */}
+            <div className="flex gap-1.5">
+              {TABS.map(({ key, label }) => (
+                <button key={key}
+                  onClick={() => setActiveTab(key)}
+                  style={{
+                    padding: '4px 16px',
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    letterSpacing: '0.01em',
+                    background: activeTab === key ? '#7c3aed' : 'transparent',
+                    color: activeTab === key ? '#ffffff' : '#475569',
+                    border: `1px solid ${activeTab === key ? '#7c3aed' : 'var(--border)'}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { if (activeTab !== key) e.currentTarget.style.color = '#94a3b8' }}
+                  onMouseLeave={e => { if (activeTab !== key) e.currentTarget.style.color = '#475569' }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
             {/* Projection split pills */}
             <div className="flex items-center gap-1">
@@ -101,19 +125,6 @@ export default function ExposureDashboard() {
                 ))}
               </div>
             </div>
-
-            {/* Teams toggle */}
-            <button
-              onClick={cycleTeams}
-              className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold border transition-all"
-              style={{
-                background: teamsMode !== 'hidden' ? 'var(--navy-700)' : 'var(--navy-800)',
-                borderColor: teamsMode !== 'hidden' ? '#334155' : 'var(--border)',
-                color: teamsMode !== 'hidden' ? '#e2e8f0' : '#475569',
-              }}
-            >
-              <span>{teamsIcon}</span> {teamsLabel} Teams
-            </button>
           </div>
         </div>
       </header>
@@ -133,17 +144,44 @@ export default function ExposureDashboard() {
               <p className="text-xs uppercase tracking-widest" style={{ color: '#475569' }}>Loading data…</p>
             </div>
           </div>
-        ) : (
-          <div className={`grid gap-5 ${teamsMode === 'sidebar' ? 'grid-cols-1 xl:grid-cols-[1fr_380px]' : 'grid-cols-1'}`}>
+        ) : data && (
+          <>
+            {/* ── Teams ── */}
+            {activeTab === 'teams' && (
+              <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5 items-start">
+                <div className="space-y-2">
+                  <h2 className="section-header">My Teams</h2>
+                  <TeamList
+                    entries={data.entries}
+                    selectedEntryId={selectedEntryId}
+                    onSelect={setSelectedEntryId}
+                    teamScores={teamScores}
+                  />
+                </div>
+                {selectedEntry ? (
+                  <div className="rounded-lg border p-4" style={{ background: 'var(--navy-800)', borderColor: 'var(--border)' }}>
+                    <TeamDetail
+                      entry={selectedEntry}
+                      getPred={getPred}
+                      activeSplit={activeSplit}
+                      teamScore={teamScores.get(selectedEntry.entryId)}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-48 rounded-lg border text-xs uppercase tracking-widest"
+                    style={{ borderColor: 'var(--border)', color: '#334155' }}>
+                    Select a team →
+                  </div>
+                )}
+              </div>
+            )}
 
-            {/* Exposures panel */}
-            {teamsMode !== 'full' && data && (
+            {/* ── Exposures ── */}
+            {activeTab === 'exposures' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                   <h2 className="section-header">Player Exposures</h2>
-                  <span className="text-xs" style={{ color: '#475569' }}>
-                    {filteredExposures.length} players
-                  </span>
+                  <span className="text-xs" style={{ color: '#475569' }}>{filteredExposures.length} players</span>
                 </div>
                 <FilterBar
                   filters={filters}
@@ -161,55 +199,25 @@ export default function ExposureDashboard() {
                   getPred={getPred}
                   activeSplit={activeSplit}
                   comboNames={comboNames}
-                  onAddToCombo={addComboPlayer}
+                  onAddToCombo={(name) => { addComboPlayer(name); setActiveTab('combo') }}
                 />
               </div>
             )}
 
-            {/* Teams panel */}
-            {teamsMode !== 'hidden' && data && (
-              <div className={teamsMode === 'full'
-                ? 'grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5 items-start'
-                : 'space-y-3'
-              }>
-                <div className="space-y-2">
-                  <h2 className="section-header">My Teams</h2>
-                  <TeamList
-                    entries={data.entries}
-                    selectedEntryId={selectedEntryId}
-                    onSelect={setSelectedEntryId}
-                    teamScores={teamScores}
-                  />
-                </div>
-                {selectedEntry ? (
-                  <div className="rounded-lg border p-4" style={{ background: 'var(--navy-800)', borderColor: 'var(--border)' }}>
-                    <TeamDetail entry={selectedEntry} getPred={getPred} activeSplit={activeSplit} teamScore={teamScores.get(selectedEntry.entryId)} />
-                  </div>
-                ) : teamsMode === 'full' ? (
-                  <div className="flex items-center justify-center h-40 rounded-lg border text-xs uppercase tracking-widest"
-                    style={{ borderColor: 'var(--border)', color: '#334155' }}>
-                    Select a team
-                  </div>
-                ) : null}
-              </div>
+            {/* ── Combo ── */}
+            {activeTab === 'combo' && (
+              <PlayerComboPanel
+                entries={data.entries}
+                allExposures={data.exposures}
+                comboNames={comboNames}
+                onAdd={addComboPlayer}
+                onRemove={removeComboPlayer}
+                onClear={() => setComboNames([])}
+                getPred={getPred}
+                activeSplit={activeSplit}
+              />
             )}
-          </div>
-        )}
-
-        {/* Player combo panel — always shown below main grid when data loaded */}
-        {data && (
-          <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--border)' }}>
-            <PlayerComboPanel
-              entries={data.entries}
-              allExposures={data.exposures}
-              comboNames={comboNames}
-              onAdd={addComboPlayer}
-              onRemove={removeComboPlayer}
-              onClear={() => setComboNames([])}
-              getPred={getPred}
-              activeSplit={activeSplit}
-            />
-          </div>
+          </>
         )}
       </main>
     </div>

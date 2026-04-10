@@ -3,7 +3,7 @@ import type { PlayerPrediction } from '@/hooks/usePredictions'
 import { POSITIONAL_BENCHMARKS, exceedProb } from './roundBenchmarks'
 import { simulateBestBall } from './simulateBestBall'
 
-export type Tier = 'S' | 'A' | 'B' | 'C' | 'D' | 'F'
+export type Tier = 'S' | 'A+' | 'A' | 'A-' | 'B+' | 'B' | 'B-' | 'C' | 'D' | 'F'
 
 export interface TeamScoreComponents {
   pQB: number    // P(QB group ≥ benchmark)
@@ -89,11 +89,29 @@ export function computeTeamScore(
 
 export function toTier(percentile: number): Tier {
   if (percentile >= 90) return 'S'
-  if (percentile >= 75) return 'A'
-  if (percentile >= 55) return 'B'
-  if (percentile >= 35) return 'C'
-  if (percentile >= 15) return 'D'
+  if (percentile >= 80) return 'A+'
+  if (percentile >= 70) return 'A'
+  if (percentile >= 60) return 'A-'
+  if (percentile >= 50) return 'B+'
+  if (percentile >= 40) return 'B'
+  if (percentile >= 30) return 'B-'
+  if (percentile >= 20) return 'C'
+  if (percentile >= 10) return 'D'
   return 'F'
+}
+
+/** Colour tokens for each tier. */
+export const TIER_STYLE: Record<Tier, { text: string; bg: string; border: string }> = {
+  'S' : { text: '#fbbf24', bg: '#422006', border: '#fbbf2450' }, // gold — unique
+  'A+': { text: '#34d399', bg: '#022c22', border: '#34d39950' }, // bright emerald
+  'A' : { text: '#10b981', bg: '#052e16', border: '#10b98150' }, // emerald
+  'A-': { text: '#22c55e', bg: '#052614', border: '#22c55e50' }, // green
+  'B+': { text: '#a3e635', bg: '#1a2e05', border: '#a3e63550' }, // bright lime
+  'B' : { text: '#84cc16', bg: '#152500', border: '#84cc1650' }, // lime
+  'B-': { text: '#65a30d', bg: '#101e00', border: '#65a30d50' }, // dark lime
+  'C' : { text: '#94a3b8', bg: '#1e293b', border: '#94a3b850' }, // slate — clearly distinct
+  'D' : { text: '#fb923c', bg: '#431407', border: '#fb923c50' }, // orange
+  'F' : { text: '#f87171', bg: '#450a0a', border: '#f8717150' }, // red
 }
 
 /** Converts a map of raw scores into ranked TeamScore objects (percentile within portfolio). */

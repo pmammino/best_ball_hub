@@ -2,7 +2,7 @@
 
 import { DraftEntry } from '@/lib/types'
 import { TeamScore } from '@/hooks/useTeamScores'
-import { Tier } from '@/lib/scoreTeam'
+import { TIER_STYLE } from '@/lib/scoreTeam'
 
 interface Props {
   entries: DraftEntry[]
@@ -11,22 +11,13 @@ interface Props {
   teamScores: Map<string, TeamScore>
 }
 
-const TIER_COLOR: Record<Tier, { text: string; bg: string }> = {
-  S: { text: '#fbbf24', bg: '#422006' },
-  A: { text: '#34d399', bg: '#052e16' },
-  B: { text: '#a3e635', bg: '#1a2e05' },
-  C: { text: '#fbbf24', bg: '#451a03' },
-  D: { text: '#fb923c', bg: '#431407' },
-  F: { text: '#f87171', bg: '#450a0a' },
-}
-
 export default function TeamList({ entries, selectedEntryId, onSelect, teamScores }: Props) {
   return (
     <div className="flex flex-col gap-0.5">
       {entries.map((entry, i) => {
         const active = entry.entryId === selectedEntryId
         const score  = teamScores.get(entry.entryId)
-        const tc     = score ? TIER_COLOR[score.tier] : null
+        const tc     = score ? TIER_STYLE[score.tier] : null
         return (
           <button key={entry.entryId}
             onClick={() => onSelect(active ? '' : entry.entryId)}
