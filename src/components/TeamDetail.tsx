@@ -5,11 +5,14 @@ import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS, roundPercentile } from '@/lib/roundBenchmarks'
 import { simulateBestBall } from '@/lib/simulateBestBall'
+import { TeamScore } from '@/hooks/useTeamScores'
+import { Tier } from '@/lib/scoreTeam'
 
 interface Props {
   entry: DraftEntry
   getPred: (fullName: string) => PlayerPrediction | undefined
   activeSplit: PredSplit
+  teamScore?: TeamScore
 }
 
 // Position accent colors
@@ -18,6 +21,21 @@ const POS_COLORS: Record<string, { bg: string; text: string; border: string; dim
   RB: { bg: '#0f1a0f', text: '#4ade80', border: '#14532d', dim: '#166534' },
   WR: { bg: '#0f1020', text: '#60a5fa', border: '#1e3a5f', dim: '#1d4ed8' },
   TE: { bg: '#1a150a', text: '#fbbf24', border: '#78350f', dim: '#92400e' },
+}
+
+const TIER_STYLE: Record<Tier, { text: string; bg: string; border: string }> = {
+  S: { text: '#fbbf24', bg: '#422006', border: '#fbbf2440' },
+  A: { text: '#34d399', bg: '#052e16', border: '#34d39940' },
+  B: { text: '#a3e635', bg: '#1a2e05', border: '#a3e63540' },
+  C: { text: '#fbbf24', bg: '#451a03', border: '#fbbf2440' },
+  D: { text: '#fb923c', bg: '#431407', border: '#fb923c40' },
+  F: { text: '#f87171', bg: '#450a0a', border: '#f8717140' },
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
 }
 
 const STACK_PALETTE = [
@@ -58,7 +76,7 @@ function GradeBadge({ grade }: { grade: string }) {
   )
 }
 
-export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
+export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: Props) {
   const [posFilter, setPosFilter] = useState<Position | null>(null)
 
   function togglePosFilter(pos: Position) {
@@ -114,8 +132,31 @@ export default function TeamDetail({ entry, getPred, activeSplit }: Props) {
     <div className="space-y-5">
       {/* Header */}
       <div style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '-0.01em' }}>{entry.label}</h3>
-        <p style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{entry.picks.length} picks</p>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <div>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0', letterSpacing: '-0.01em' }}>{entry.label}</h3>
+            <p style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>{entry.picks.length} picks</p>
+          </div>
+          {teamScore && (() => {
+            const ts = TIER_STYLE[teamScore.tier]
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                <span style={{
+                  fontSize: 20, fontWeight: 900, color: ts.text,
+                  background: ts.bg, border: `1px solid ${ts.border}`,
+                  borderRadius: 6, padding: '2px 14px', letterSpacing: '0.04em',
+                }}>
+                  {teamScore.tier}
+                </span>
+                <span style={{ fontSize: 10, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                  {ordinal(teamScore.percentile)} of {/* total computed externally */}
+                  <span style={{ color: ts.text, fontWeight: 700 }}> {teamScore.percentile}</span>
+                  <span style={{ color: '#334155' }}>/100</span>
+                </span>
+              </div>
+            )
+          })()}
+        </div>
       </div>
 
       {/* Positional cards */}

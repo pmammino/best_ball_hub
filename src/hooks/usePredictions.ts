@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 
 export type PredSplit = 'C' | 'M' | 'F'
 
@@ -25,6 +25,17 @@ export interface PlayerPrediction {
   F: SplitPrediction | null
 }
 
+// Module-level helpers — no closure over state, stable references
+function stripSuffix(name: string): string {
+  return name.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '').trim()
+}
+function stripPeriods(name: string): string {
+  return name.replace(/\./g, '').replace(/\s+/g, ' ').trim()
+}
+function normalizeName(name: string): string {
+  return stripSuffix(stripPeriods(name)).toLowerCase()
+}
+
 export function usePredictions() {
   const [predictions, setPredictions] = useState<PlayerPrediction[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -43,18 +54,6 @@ export function usePredictions() {
       })
   }, [])
 
-  // Normalization helpers
-  function stripSuffix(name: string): string {
-    return name.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '').trim()
-  }
-  function stripPeriods(name: string): string {
-    return name.replace(/\./g, '').replace(/\s+/g, ' ').trim()
-  }
-  function normalize(name: string): string {
-    return stripSuffix(stripPeriods(name)).toLowerCase()
-  }
-
-  // Build multiple lookup maps: exact → no-periods → no-suffix → both
   const { predByName, predByNorm, predByLastFirst } = useMemo(() => {
     const predByName      = new Map<string, PlayerPrediction>()
     const predByNorm      = new Map<string, PlayerPrediction>()
@@ -63,9 +62,8 @@ export function usePredictions() {
     for (const p of predictions) {
       const exact = p.fullName.toLowerCase()
       predByName.set(exact, p)
-      predByNorm.set(normalize(p.fullName), p)
+      predByNorm.set(normalizeName(p.fullName), p)
 
-      // last,firstInitial key e.g. "moore,d" for DJ Moore
       const parts = p.fullName.trim().split(/\s+/)
       if (parts.length >= 2) {
         const last  = parts[parts.length - 1].toLowerCase().replace(/\./g, '')
@@ -76,16 +74,14 @@ export function usePredictions() {
     return { predByName, predByNorm, predByLastFirst }
   }, [predictions])
 
-  function getPred(fullName: string): PlayerPrediction | undefined {
-    // 1. Exact case-insensitive
+  // Stable reference — only changes when lookup maps change (i.e. predictions load)
+  const getPred = useCallback((fullName: string): PlayerPrediction | undefined => {
     const exact = fullName.toLowerCase()
     if (predByName.has(exact)) return predByName.get(exact)
 
-    // 2. Normalize: strip periods in initials + strip name suffix
-    const normed = normalize(fullName)
+    const normed = normalizeName(fullName)
     if (predByNorm.has(normed)) return predByNorm.get(normed)
 
-    // 3. Last-name + first-initial (catches e.g. "D.J." vs "DJ" after normalization)
     const parts = fullName.trim().split(/\s+/)
     if (parts.length >= 2) {
       const last  = parts[parts.length - 1].toLowerCase().replace(/\./g, '')
@@ -95,7 +91,7 @@ export function usePredictions() {
     }
 
     return undefined
-  }
+  }, [predByName, predByNorm, predByLastFirst])
 
   return { predictions, predByName, predByNorm, predByLastFirst, getPred, isLoading, error }
 }

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useDraftData } from '@/hooks/useDraftData'
 import { usePredictions, PredSplit } from '@/hooks/usePredictions'
+import { useTeamScores } from '@/hooks/useTeamScores'
 import CsvUpload from './CsvUpload'
 import FilterBar from './FilterBar'
 import ExposureTable from './ExposureTable'
@@ -32,6 +33,7 @@ export default function ExposureDashboard() {
   } = useDraftData()
 
   const { getPred, isLoading: predLoading, error: predError } = usePredictions()
+  const teamScores = useTeamScores(data?.entries ?? [], getPred)
 
   const [teamsMode, setTeamsMode] = useState<TeamsMode>('sidebar')
   const [activeSplit, setActiveSplit] = useState<PredSplit>('M')
@@ -176,11 +178,12 @@ export default function ExposureDashboard() {
                     entries={data.entries}
                     selectedEntryId={selectedEntryId}
                     onSelect={setSelectedEntryId}
+                    teamScores={teamScores}
                   />
                 </div>
                 {selectedEntry ? (
                   <div className="rounded-lg border p-4" style={{ background: 'var(--navy-800)', borderColor: 'var(--border)' }}>
-                    <TeamDetail entry={selectedEntry} getPred={getPred} activeSplit={activeSplit} />
+                    <TeamDetail entry={selectedEntry} getPred={getPred} activeSplit={activeSplit} teamScore={teamScores.get(selectedEntry.entryId)} />
                   </div>
                 ) : teamsMode === 'full' ? (
                   <div className="flex items-center justify-center h-40 rounded-lg border text-xs uppercase tracking-widest"

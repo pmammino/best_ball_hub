@@ -1,18 +1,32 @@
 'use client'
 
 import { DraftEntry } from '@/lib/types'
+import { TeamScore } from '@/hooks/useTeamScores'
+import { Tier } from '@/lib/scoreTeam'
 
 interface Props {
   entries: DraftEntry[]
   selectedEntryId: string | null
   onSelect: (id: string) => void
+  teamScores: Map<string, TeamScore>
 }
 
-export default function TeamList({ entries, selectedEntryId, onSelect }: Props) {
+const TIER_COLOR: Record<Tier, { text: string; bg: string }> = {
+  S: { text: '#fbbf24', bg: '#422006' },
+  A: { text: '#34d399', bg: '#052e16' },
+  B: { text: '#a3e635', bg: '#1a2e05' },
+  C: { text: '#fbbf24', bg: '#451a03' },
+  D: { text: '#fb923c', bg: '#431407' },
+  F: { text: '#f87171', bg: '#450a0a' },
+}
+
+export default function TeamList({ entries, selectedEntryId, onSelect, teamScores }: Props) {
   return (
     <div className="flex flex-col gap-0.5">
       {entries.map((entry, i) => {
         const active = entry.entryId === selectedEntryId
+        const score  = teamScores.get(entry.entryId)
+        const tc     = score ? TIER_COLOR[score.tier] : null
         return (
           <button key={entry.entryId}
             onClick={() => onSelect(active ? '' : entry.entryId)}
@@ -31,9 +45,20 @@ export default function TeamList({ entries, selectedEntryId, onSelect }: Props) 
               <span style={{ fontSize: 12, fontWeight: active ? 700 : 500, color: active ? '#e2e8f0' : '#64748b' }}>
                 Entry {i + 1}
               </span>
-              <span style={{ fontSize: 10, color: '#334155', fontWeight: 600, letterSpacing: '0.04em' }}>
-                {entry.picks.length}P
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                {tc && score && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, color: tc.text, background: tc.bg,
+                    border: `1px solid ${tc.text}40`, borderRadius: 3,
+                    padding: '1px 5px', letterSpacing: '0.04em',
+                  }}>
+                    {score.tier}
+                  </span>
+                )}
+                <span style={{ fontSize: 10, color: '#334155', fontWeight: 600, letterSpacing: '0.04em' }}>
+                  {entry.picks.length}P
+                </span>
+              </div>
             </div>
             <div style={{ fontSize: 10, color: '#334155', marginTop: 1, letterSpacing: '0.03em' }}>
               {entry.tournament}
