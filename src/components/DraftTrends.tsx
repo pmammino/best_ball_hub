@@ -215,10 +215,10 @@ export default function DraftTrends({ entries, teamScores }: Props) {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th className="text-left py-2 pl-3 pr-4 font-semibold uppercase tracking-widest"
-                  style={{ color: '#475569', fontSize: 10, width: 44 }}>Pos</th>
+                  style={{ color: '#64748b', fontSize: 10, width: 44 }}>Pos</th>
                 {mixMode === 'relative' && (
                   <th className="text-right pr-3 font-semibold uppercase tracking-widest"
-                    style={{ color: '#475569', fontSize: 10, width: 44 }}>Avg</th>
+                    style={{ color: '#64748b', fontSize: 10, width: 44 }}>Avg</th>
                 )}
                 {Array.from({ length: roundCount }, (_, i) => (
                   <th key={i + 1} style={{ color: '#64748b', fontWeight: 600, fontSize: 10, padding: '4px 3px', minWidth: 28 }}>
@@ -258,7 +258,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                             cursor: 'default',
                             transition: 'background 0.15s',
                           }}>
-                          {count > 0 ? pct : <span style={{ color: '#1e293b' }}>–</span>}
+                          {count > 0 ? pct : <span style={{ color: '#334155' }}>–</span>}
                         </td>
                       )
                     }
@@ -272,7 +272,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                     const overIntensity  = Math.min((ratio - 1) / 1.5, 1)
                     const underIntensity = Math.min((1 - ratio) / 0.6, 1)
                     let bg = 'transparent'
-                    let color = '#475569'
+                    let color = '#64748b'
                     let fw = 400
                     if (over) {
                       const a = Math.round(overIntensity * 180).toString(16).padStart(2, '0')
@@ -285,7 +285,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                       color = '#94a3b8'
                       fw = 500
                     } else if (count === 0) {
-                      color = '#1e293b'
+                      color = '#334155'
                     } else {
                       color = '#64748b'
                     }
@@ -301,7 +301,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                           cursor: 'default',
                           transition: 'background 0.15s',
                         }}>
-                        {count > 0 ? `${ratio.toFixed(1)}×` : <span style={{ color: '#1e293b' }}>–</span>}
+                        {count > 0 ? `${ratio.toFixed(1)}×` : <span style={{ color: '#334155' }}>–</span>}
                       </td>
                     )
                   })}
@@ -310,7 +310,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs" style={{ color: '#475569' }}>
+        <p className="mt-2 text-xs" style={{ color: '#64748b' }}>
           {mixMode === 'share'
             ? `Values show % of picks in that round. Highlighted cells are well above the position's average round share.`
             : `Values are round share ÷ overall average. Position-colored cells = over-indexing in that round, gray cells = under-indexing.`}
@@ -392,10 +392,10 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                         {pos}
                       </th>
                     ))}
-                    <th style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#475569', fontSize: 10, width: '20%' }}>
+                    <th style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#64748b', fontSize: 10, width: '20%' }}>
                       TEAMS
                     </th>
-                    <th style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#475569', fontSize: 10, width: '20%' }}>
+                    <th style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#64748b', fontSize: 10, width: '20%' }}>
                       FREQ
                     </th>
                   </tr>
@@ -455,9 +455,9 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                     <span className="text-xs font-bold" style={{ color: POS_COLOR[pos].fill }}>{pos}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs" style={{ color: '#94a3b8' }}>
-                        {Math.round(actual)}% <span style={{ color: '#475569' }}>actual</span>
+                        {Math.round(actual)}% <span style={{ color: '#64748b' }}>actual</span>
                         &nbsp;·&nbsp;
-                        {target}% <span style={{ color: '#475569' }}>target</span>
+                        {target}% <span style={{ color: '#64748b' }}>target</span>
                       </span>
                       <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
                         style={{ color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}30` }}>
@@ -496,7 +496,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                 </div>
               )
             })}
-            <p className="text-xs pt-1" style={{ color: '#475569' }}>
+            <p className="text-xs pt-1" style={{ color: '#64748b' }}>
               Vertical tick = target. FLEX picks are shared across RB/WR/TE so targets are indicative. ±3pp = on track.
             </p>
           </div>
@@ -539,15 +539,15 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                       ? `+${Math.round(dev)}pp`
                       : `${Math.round(dev)}pp`
                   const badgeColor = absDev < 2
-                    ? '#475569'
+                    ? '#64748b'
                     : isOver
                       ? POS_COLOR[pos].fill
-                      : '#64748b'
+                      : '#94a3b8'
                   const badgeBg = absDev < 2
-                    ? '#1e293b'
+                    ? '#1e293b50'
                     : isOver
                       ? `${POS_COLOR[pos].fill}22`
-                      : '#1e293b'
+                      : '#1e293b50'
 
                   return (
                     <div key={pos}>
@@ -591,8 +591,8 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                 })}
               </div>
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs font-medium" style={{ color: '#475569' }}>{phase.total} picks</span>
-                <span className="text-xs" style={{ color: '#334155' }}>tick = your avg</span>
+                <span className="text-xs font-medium" style={{ color: '#64748b' }}>{phase.total} picks</span>
+                <span className="text-xs" style={{ color: '#64748b' }}>tick = your avg</span>
               </div>
             </div>
           ))}
@@ -632,13 +632,13 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                   <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold" style={{ color }}>{label}</span>
-                      <span className="text-xs" style={{ color: '#475569' }}>{sublabel}</span>
+                      <span className="text-xs" style={{ color: '#64748b' }}>{sublabel}</span>
                     </div>
-                    <div className="flex items-center gap-3 text-xs" style={{ color: '#64748b' }}>
-                      <span>min <strong style={{ color: '#94a3b8' }}>{fmt(s.min)}</strong></span>
-                      <span>avg <strong style={{ color: '#e2e8f0' }}>{fmt(s.avg)}</strong></span>
-                      <span>med <strong style={{ color: '#94a3b8' }}>{fmt(s.med)}</strong></span>
-                      <span>max <strong style={{ color: '#94a3b8' }}>{fmt(s.max)}</strong></span>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: '#94a3b8' }}>
+                      <span>min <strong style={{ color: '#cbd5e1' }}>{fmt(s.min)}</strong></span>
+                      <span>avg <strong style={{ color: '#f1f5f9' }}>{fmt(s.avg)}</strong></span>
+                      <span>med <strong style={{ color: '#cbd5e1' }}>{fmt(s.med)}</strong></span>
+                      <span>max <strong style={{ color: '#cbd5e1' }}>{fmt(s.max)}</strong></span>
                     </div>
                   </div>
                   {/* Range track */}
@@ -794,7 +794,7 @@ function RelativeChart({ rounds, proportions, avgProp, roundMix }: RelativeChart
               <text x={PAD_L - 10} y={baseY - 3} textAnchor="end" fontSize={12} fontWeight={700} fill={POS_COLOR[pos].fill}>
                 {pos}
               </text>
-              <text x={PAD_L - 10} y={baseY + 11} textAnchor="end" fontSize={9} fill="#475569">
+              <text x={PAD_L - 10} y={baseY + 11} textAnchor="end" fontSize={9} fill="#64748b">
                 avg {Math.round(avg * 100)}%
               </text>
 
@@ -838,7 +838,7 @@ function RelativeChart({ rounds, proportions, avgProp, roundMix }: RelativeChart
                         </title>
                       </rect>
                     ) : (
-                      <circle cx={x + BAR_W / 2} cy={baseY} r={1.5} fill="#334155">
+                      <circle cx={x + BAR_W / 2} cy={baseY} r={1.5} fill="#475569">
                         <title>{`Rd ${r} ${pos}: 0 picks`}</title>
                       </circle>
                     )}
