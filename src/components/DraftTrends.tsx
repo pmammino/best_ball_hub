@@ -133,6 +133,22 @@ export default function DraftTrends({ entries }: Props) {
     ) as Record<Position, { min: number; max: number; med: number; distribution: Record<number, number> }>
   }, [rosterCounts])
 
+  // QB-RB-WR-TE combo frequency across all entries
+  const rosterCombos = useMemo(() => {
+    const n = rosterCounts.QB.length
+    const freq: Record<string, number> = {}
+    for (let i = 0; i < n; i++) {
+      const key = `${rosterCounts.QB[i]}-${rosterCounts.RB[i]}-${rosterCounts.WR[i]}-${rosterCounts.TE[i]}`
+      freq[key] = (freq[key] ?? 0) + 1
+    }
+    return Object.entries(freq)
+      .map(([key, count]) => {
+        const [qb, rb, wr, te] = key.split('-').map(Number)
+        return { qb, rb, wr, te, count }
+      })
+      .sort((a, b) => b.count - a.count)
+  }, [rosterCounts])
+
   // Per-position average proportion across rounds (for heatmap baseline)
   const avgProp = useMemo(() => {
     return Object.fromEntries(
@@ -337,6 +353,59 @@ export default function DraftTrends({ entries }: Props) {
                 </div>
               )
             })}
+          </div>
+
+          {/* Combo frequency table */}
+          <div className="mt-6">
+            <div className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: '#64748b' }}>
+              Roster combos (QB · RB · WR · TE)
+            </div>
+            <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: '#0f172a' }}>
+                    {(['QB', 'RB', 'WR', 'TE'] as Position[]).map(pos => (
+                      <th key={pos} style={{ padding: '6px 0', textAlign: 'center', fontWeight: 700, color: POS_COLOR[pos].fill, fontSize: 11, width: '12%' }}>
+                        {pos}
+                      </th>
+                    ))}
+                    <th style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#475569', fontSize: 10, width: '20%' }}>
+                      TEAMS
+                    </th>
+                    <th style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 600, color: '#475569', fontSize: 10, width: '20%' }}>
+                      FREQ
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rosterCombos.map(({ qb, rb, wr, te, count }, idx) => {
+                    const pct = Math.round((count / totalEntries) * 100)
+                    const isTop = idx === 0
+                    return (
+                      <tr key={idx} style={{ borderTop: '1px solid #1e293b', background: isTop ? '#1e29381a' : undefined }}>
+                        <td style={{ padding: '7px 0', textAlign: 'center', color: POS_COLOR.QB.fill, fontWeight: 700 }}>{qb}</td>
+                        <td style={{ padding: '7px 0', textAlign: 'center', color: POS_COLOR.RB.fill, fontWeight: 700 }}>{rb}</td>
+                        <td style={{ padding: '7px 0', textAlign: 'center', color: POS_COLOR.WR.fill, fontWeight: 700 }}>{wr}</td>
+                        <td style={{ padding: '7px 0', textAlign: 'center', color: POS_COLOR.TE.fill, fontWeight: 700 }}>{te}</td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right', color: '#e2e8f0', fontWeight: isTop ? 700 : 500 }}>
+                          {count}
+                        </td>
+                        <td style={{ padding: '7px 10px', textAlign: 'right' }}>
+                          <div className="flex items-center justify-end gap-2">
+                            <div style={{ width: 40, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: '#7c3aed', borderRadius: 2 }} />
+                            </div>
+                            <span style={{ fontSize: 11, color: isTop ? '#e2e8f0' : '#64748b', fontWeight: isTop ? 600 : 400, minWidth: 28, textAlign: 'right' }}>
+                              {pct}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
