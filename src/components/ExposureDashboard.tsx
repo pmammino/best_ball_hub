@@ -10,13 +10,15 @@ import ExposureTable from './ExposureTable'
 import TeamList from './TeamList'
 import TeamDetail from './TeamDetail'
 import PlayerComboPanel from './PlayerComboPanel'
+import DraftTrends from './DraftTrends'
 
-type Tab = 'teams' | 'exposures' | 'combo'
+type Tab = 'teams' | 'exposures' | 'combo' | 'trends'
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'teams',     label: 'Teams'     },
-  { key: 'exposures', label: 'Exposures' },
-  { key: 'combo',     label: 'Combo'     },
+  { key: 'teams',     label: 'Teams'        },
+  { key: 'exposures', label: 'Exposures'    },
+  { key: 'combo',     label: 'Combo'        },
+  { key: 'trends',    label: 'Draft Trends' },
 ]
 
 const SPLITS: { key: PredSplit; label: string }[] = [
@@ -216,6 +218,11 @@ export default function ExposureDashboard() {
                 getPred={getPred}
                 activeSplit={activeSplit}
               />
+            )}
+
+            {/* ── Draft Trends ── */}
+            {activeTab === 'trends' && (
+              <DraftTrends entries={data.entries} />
             )}
           </>
         )}
