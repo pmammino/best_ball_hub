@@ -1,7 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { DraftEntry, Position } from '@/lib/types'
+
+type MixMode = 'share' | 'relative'
 
 interface Props {
   entries: DraftEntry[]
@@ -30,6 +32,8 @@ function percentile(sorted: number[], p: number): number {
 
 export default function DraftTrends({ entries }: Props) {
   const totalEntries = entries.length
+  const [mixMode, setMixMode] = useState<MixMode>('share')
+
   if (totalEntries === 0) return null
 
   const picksPerTeam = entries[0]?.picks.length ?? 18
@@ -145,12 +149,26 @@ export default function DraftTrends({ entries }: Props) {
 
       {/* ── 1. Round-by-Round Position Mix ── */}
       <section>
-        <h2 className="section-header mb-1">Round-by-Round Position Mix</h2>
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-1">
+          <h2 className="section-header">Round-by-Round Position Mix</h2>
+          <ModeToggle mode={mixMode} onChange={setMixMode} />
+        </div>
         <p className="text-xs mb-4" style={{ color: '#64748b' }}>
-          Positional share of each round across all {totalEntries} teams. Tall bars for one position signal concentration hot-spots.
+          {mixMode === 'share'
+            ? `Positional share of each round across all ${totalEntries} teams. Tall bars for one position signal concentration hot-spots.`
+            : `Each round's positional share vs. your overall portfolio average. 1.0× = on pace, >1× = over-indexing, <1× = under-indexing.`}
         </p>
 
-        <StackedBarChart rounds={roundCount} proportions={roundProportions} roundMix={roundMix} />
+        {mixMode === 'share' ? (
+          <StackedBarChart rounds={roundCount} proportions={roundProportions} roundMix={roundMix} />
+        ) : (
+          <RelativeChart
+            rounds={roundCount}
+            proportions={roundProportions}
+            avgProp={avgProp}
+            roundMix={roundMix}
+          />
+        )}
 
         {/* Heatmap */}
         <div className="mt-5 overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border)', background: 'var(--navy-800)' }}>
@@ -159,6 +177,10 @@ export default function DraftTrends({ entries }: Props) {
               <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th className="text-left py-2 pl-3 pr-4 font-semibold uppercase tracking-widest"
                   style={{ color: '#475569', fontSize: 10, width: 44 }}>Pos</th>
+                {mixMode === 'relative' && (
+                  <th className="text-right pr-3 font-semibold uppercase tracking-widest"
+                    style={{ color: '#475569', fontSize: 10, width: 44 }}>Avg</th>
+                )}
                 {Array.from({ length: roundCount }, (_, i) => (
                   <th key={i + 1} style={{ color: '#64748b', fontWeight: 600, fontSize: 10, padding: '4px 3px', minWidth: 28 }}>
                     {i + 1}
@@ -170,29 +192,77 @@ export default function DraftTrends({ entries }: Props) {
               {POSITIONS.map((pos, pi) => (
                 <tr key={pos} style={{ borderTop: pi > 0 ? '1px solid #1e293b' : undefined }}>
                   <td className="py-2 pl-3 pr-4 text-left font-bold" style={{ color: POS_COLOR[pos].fill, fontSize: 11 }}>{pos}</td>
+                  {mixMode === 'relative' && (
+                    <td className="text-right pr-3" style={{ color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>
+                      {Math.round(avgProp[pos] * 100)}%
+                    </td>
+                  )}
                   {Array.from({ length: roundCount }, (_, i) => {
                     const r = i + 1
                     const prop = roundProportions[r]?.[pos] ?? 0
                     const avg = avgProp[pos]
-                    const excess = Math.max(0, prop - avg)
-                    const intensity = Math.min(excess / 0.45, 1)
                     const count = roundMix[r]?.[pos] ?? 0
                     const pct = Math.round(prop * 100)
-                    // Background: position color at scaled opacity; text always readable
-                    const bgAlpha = Math.round(intensity * 180).toString(16).padStart(2, '0')
+
+                    if (mixMode === 'share') {
+                      const excess = Math.max(0, prop - avg)
+                      const intensity = Math.min(excess / 0.45, 1)
+                      const bgAlpha = Math.round(intensity * 180).toString(16).padStart(2, '0')
+                      return (
+                        <td key={r}
+                          title={`Rd ${r} ${pos}: ${count} picks (${pct}%)`}
+                          style={{
+                            padding: '4px 3px',
+                            background: intensity > 0.08 ? `${POS_COLOR[pos].fill}${bgAlpha}` : 'transparent',
+                            color: intensity > 0.35 ? '#f1f5f9' : '#64748b',
+                            fontWeight: intensity > 0.35 ? 700 : 400,
+                            cursor: 'default',
+                            transition: 'background 0.15s',
+                          }}>
+                          {count > 0 ? pct : <span style={{ color: '#1e293b' }}>–</span>}
+                        </td>
+                      )
+                    }
+
+                    // relative mode: show ratio vs overall average
+                    const ratio = avg > 0 ? prop / avg : 0
+                    // Intensity for over-indexing (ratio > 1) or under-indexing (ratio < 1 but > 0)
+                    const over  = ratio > 1.1
+                    const under = ratio > 0 && ratio < 0.9
+                    // Scale magnitude: 2.5× or 0.4× = full intensity
+                    const overIntensity  = Math.min((ratio - 1) / 1.5, 1)
+                    const underIntensity = Math.min((1 - ratio) / 0.6, 1)
+                    let bg = 'transparent'
+                    let color = '#475569'
+                    let fw = 400
+                    if (over) {
+                      const a = Math.round(overIntensity * 180).toString(16).padStart(2, '0')
+                      bg = `${POS_COLOR[pos].fill}${a}`
+                      color = overIntensity > 0.4 ? '#f1f5f9' : '#e2e8f0'
+                      fw = overIntensity > 0.4 ? 700 : 600
+                    } else if (under) {
+                      const a = Math.round(underIntensity * 110).toString(16).padStart(2, '0')
+                      bg = `#64748b${a}`
+                      color = '#94a3b8'
+                      fw = 500
+                    } else if (count === 0) {
+                      color = '#1e293b'
+                    } else {
+                      color = '#64748b'
+                    }
+
                     return (
                       <td key={r}
-                        title={`Rd ${r} ${pos}: ${count} picks (${pct}%)`}
+                        title={`Rd ${r} ${pos}: ${count} picks (${pct}%) · ${ratio.toFixed(2)}× your avg`}
                         style={{
                           padding: '4px 3px',
-                          background: intensity > 0.08 ? `${POS_COLOR[pos].fill}${bgAlpha}` : 'transparent',
-                          // Always use white-ish text; only boost weight for hot cells
-                          color: intensity > 0.35 ? '#f1f5f9' : '#64748b',
-                          fontWeight: intensity > 0.35 ? 700 : 400,
+                          background: bg,
+                          color,
+                          fontWeight: fw,
                           cursor: 'default',
                           transition: 'background 0.15s',
                         }}>
-                        {count > 0 ? pct : <span style={{ color: '#1e293b' }}>–</span>}
+                        {count > 0 ? `${ratio.toFixed(1)}×` : <span style={{ color: '#1e293b' }}>–</span>}
                       </td>
                     )
                   })}
@@ -202,7 +272,9 @@ export default function DraftTrends({ entries }: Props) {
           </table>
         </div>
         <p className="mt-2 text-xs" style={{ color: '#475569' }}>
-          Values show % of picks in that round. Highlighted cells are well above the position&apos;s average round share.
+          {mixMode === 'share'
+            ? `Values show % of picks in that round. Highlighted cells are well above the position's average round share.`
+            : `Values are round share ÷ overall average. Position-colored cells = over-indexing in that round, gray cells = under-indexing.`}
         </p>
       </section>
 
@@ -392,6 +464,170 @@ export default function DraftTrends({ entries }: Props) {
 
 function Divider() {
   return <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
+}
+
+function ModeToggle({ mode, onChange }: { mode: MixMode; onChange: (m: MixMode) => void }) {
+  const opts: { key: MixMode; label: string }[] = [
+    { key: 'share',    label: 'Share %' },
+    { key: 'relative', label: 'vs. Avg' },
+  ]
+  return (
+    <div className="flex rounded overflow-hidden border" style={{ borderColor: 'var(--border-light)' }}>
+      {opts.map(({ key, label }) => {
+        const active = mode === key
+        return (
+          <button key={key}
+            onClick={() => onChange(key)}
+            style={{
+              padding: '4px 12px',
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              background: active ? '#7c3aed' : 'var(--navy-800)',
+              color: active ? '#ffffff' : '#64748b',
+              borderLeft: '1px solid var(--border-light)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+interface RelativeChartProps {
+  rounds: number
+  proportions: Record<number, Record<Position, number>>
+  avgProp: Record<Position, number>
+  roundMix: Record<number, Record<Position, number>>
+}
+
+/**
+ * Diverging small-multiples chart: one row per position.
+ * Each row shows a bar per round representing (actual share ÷ overall average).
+ * Baseline at 1.0× runs through the vertical center of each row.
+ * Bars grow upward from baseline (over-indexing, position color) or
+ * downward (under-indexing, muted slate).
+ */
+function RelativeChart({ rounds, proportions, avgProp, roundMix }: RelativeChartProps) {
+  const ROW_H   = 58           // plot area height per position
+  const ROW_GAP = 18
+  const BAR_W   = 22
+  const GAP     = 4
+  const PAD_L   = 58
+  const PAD_T   = 8
+  const AXIS_H  = 18
+  const MAX_DEV = 1.5          // ratio deviation at which bars hit the rail (2.5× or 0× from 1.0)
+  const svgW    = PAD_L + rounds * (BAR_W + GAP) + 6
+  const svgH    = PAD_T + POSITIONS.length * (ROW_H + ROW_GAP) + AXIS_H
+
+  return (
+    <div className="overflow-x-auto">
+      <svg width={svgW} height={svgH} style={{ display: 'block', minWidth: svgW }}>
+        {POSITIONS.map((pos, posIdx) => {
+          const avg = avgProp[pos]
+          const rowTop  = PAD_T + posIdx * (ROW_H + ROW_GAP)
+          const baseY   = rowTop + ROW_H / 2  // 1.0× baseline
+          const halfH   = ROW_H / 2
+
+          return (
+            <g key={pos}>
+              {/* Row background band */}
+              <rect x={PAD_L} y={rowTop} width={rounds * (BAR_W + GAP)} height={ROW_H}
+                fill="#0f172a" opacity={0.4} rx={3} />
+
+              {/* Position label + avg */}
+              <text x={PAD_L - 10} y={baseY - 3} textAnchor="end" fontSize={12} fontWeight={700} fill={POS_COLOR[pos].fill}>
+                {pos}
+              </text>
+              <text x={PAD_L - 10} y={baseY + 11} textAnchor="end" fontSize={9} fill="#475569">
+                avg {Math.round(avg * 100)}%
+              </text>
+
+              {/* Horizontal rail at 1.0× (baseline) */}
+              <line x1={PAD_L - 4} x2={PAD_L + rounds * (BAR_W + GAP)} y1={baseY} y2={baseY}
+                stroke="#475569" strokeWidth={1} />
+              <text x={PAD_L - 4} y={baseY - 2} textAnchor="start" fontSize={8} fill="#64748b">1.0×</text>
+
+              {/* Faint quarter rails at 2× and 0.5× */}
+              <line x1={PAD_L} x2={PAD_L + rounds * (BAR_W + GAP)}
+                y1={baseY - halfH * (1 / MAX_DEV)} y2={baseY - halfH * (1 / MAX_DEV)}
+                stroke="#1e293b" strokeWidth={1} strokeDasharray="2 3" />
+              <line x1={PAD_L} x2={PAD_L + rounds * (BAR_W + GAP)}
+                y1={baseY + halfH * (0.5 / MAX_DEV)} y2={baseY + halfH * (0.5 / MAX_DEV)}
+                stroke="#1e293b" strokeWidth={1} strokeDasharray="2 3" />
+
+              {/* Bars */}
+              {Array.from({ length: rounds }, (_, i) => {
+                const r     = i + 1
+                const x     = PAD_L + i * (BAR_W + GAP)
+                const prop  = proportions[r]?.[pos] ?? 0
+                const count = roundMix[r]?.[pos] ?? 0
+                const ratio = avg > 0 ? prop / avg : 0
+                const dev   = ratio - 1
+                const clamped = Math.max(-MAX_DEV, Math.min(MAX_DEV, dev))
+                const barH  = (Math.abs(clamped) / MAX_DEV) * halfH
+                const above = dev >= 0
+                const barY  = above ? baseY - barH : baseY
+                const fill  = above ? POS_COLOR[pos].fill : '#64748b'
+                const opacity = above
+                  ? 0.55 + 0.35 * Math.min(clamped / MAX_DEV, 1)
+                  : 0.35 + 0.30 * Math.min(Math.abs(clamped) / MAX_DEV, 1)
+
+                return (
+                  <g key={r}>
+                    {count > 0 ? (
+                      <rect x={x} y={barY} width={BAR_W} height={Math.max(barH, 1)}
+                        fill={fill} opacity={opacity} rx={1.5}>
+                        <title>
+                          {`Rd ${r} ${pos}: ${count} picks · ${Math.round(prop * 100)}% of round (${ratio.toFixed(2)}× your avg)`}
+                        </title>
+                      </rect>
+                    ) : (
+                      <circle cx={x + BAR_W / 2} cy={baseY} r={1.5} fill="#334155">
+                        <title>{`Rd ${r} ${pos}: 0 picks`}</title>
+                      </circle>
+                    )}
+                  </g>
+                )
+              })}
+
+              {/* Round labels on the last row only */}
+              {posIdx === POSITIONS.length - 1 && Array.from({ length: rounds }, (_, i) => {
+                const r = i + 1
+                const x = PAD_L + i * (BAR_W + GAP) + BAR_W / 2
+                return (
+                  <text key={r} x={x} y={rowTop + ROW_H + ROW_GAP - 4} textAnchor="middle" fontSize={9} fill="#64748b">
+                    {r}
+                  </text>
+                )
+              })}
+            </g>
+          )
+        })}
+
+        {/* Axis label */}
+        <text x={PAD_L + (rounds * (BAR_W + GAP)) / 2} y={svgH - 2} textAnchor="middle" fontSize={9} fill="#64748b">
+          Round
+        </text>
+      </svg>
+
+      {/* Legend */}
+      <div className="flex gap-4 mt-2 flex-wrap items-center">
+        <div className="flex items-center gap-1.5">
+          <div style={{ width: 10, height: 8, background: '#34d399', opacity: 0.8, borderRadius: 2 }} />
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>above 1.0× = over-indexing</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div style={{ width: 10, height: 8, background: '#64748b', opacity: 0.55, borderRadius: 2 }} />
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>below 1.0× = under-indexing</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 interface StackedBarChartProps {
