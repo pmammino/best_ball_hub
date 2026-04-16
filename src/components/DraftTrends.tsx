@@ -2,11 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import type { DraftEntry, Position } from '@/lib/types'
+import type { TeamScore } from '@/lib/scoreTeam'
+import { TIER_STYLE } from '@/lib/scoreTeam'
 
 type MixMode = 'share' | 'relative'
 
 interface Props {
   entries: DraftEntry[]
+  teamScores: Map<string, TeamScore>
 }
 
 const POSITIONS: Position[] = ['QB', 'RB', 'WR', 'TE']
@@ -30,7 +33,7 @@ function percentile(sorted: number[], p: number): number {
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo)
 }
 
-export default function DraftTrends({ entries }: Props) {
+export default function DraftTrends({ entries, teamScores }: Props) {
   const totalEntries = entries.length
   const [mixMode, setMixMode] = useState<MixMode>('share')
 
@@ -159,6 +162,26 @@ export default function DraftTrends({ entries }: Props) {
       })
     ) as Record<Position, number>
   }, [roundProportions, roundCount])
+
+  // Distribution of team score components across the portfolio
+  const scoreStats = useMemo(() => {
+    const scores = Array.from(teamScores, ([, v]) => v)
+    if (scores.length === 0) return null
+    type MetricKey = 'pQB' | 'pRB' | 'pWR' | 'pTE' | 'pCeil'
+    const metrics: MetricKey[] = ['pQB', 'pRB', 'pWR', 'pTE', 'pCeil']
+    return Object.fromEntries(metrics.map(k => {
+      const vals = scores.map(s => s[k]).sort((a, b) => a - b)
+      const avg  = vals.reduce((a, b) => a + b, 0) / vals.length
+      return [k, { min: vals[0], p25: percentile(vals, 25), med: percentile(vals, 50), avg, p75: percentile(vals, 75), max: vals[vals.length - 1] }]
+    })) as Record<'pQB'|'pRB'|'pWR'|'pTE'|'pCeil', { min:number; p25:number; med:number; avg:number; p75:number; max:number }>
+  }, [teamScores])
+
+  // Grade tier distribution
+  const tierCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    Array.from(teamScores, ([, s]) => s).forEach(s => { counts[s.tier] = (counts[s.tier] ?? 0) + 1 })
+    return counts
+  }, [teamScores])
 
   return (
     <div className="space-y-8">
@@ -575,6 +598,114 @@ export default function DraftTrends({ entries }: Props) {
           ))}
         </div>
       </section>
+
+      <Divider />
+
+      {/* ── 6. Portfolio Score Distributions ── */}
+      {scoreStats && (
+        <section>
+          <h2 className="section-header mb-1">Portfolio Score Distributions</h2>
+          <p className="text-xs mb-5" style={{ color: '#64748b' }}>
+            Range of positional probabilities and ceiling scores across all {totalEntries} teams — shows how consistent vs. variable each metric is in your portfolio.
+          </p>
+
+          {/* Metric range rows */}
+          <div className="space-y-4">
+            {([
+              { key: 'pQB',   label: 'QB',     sublabel: 'P(group ≥ 11 usable wks)', color: POS_COLOR.QB.fill },
+              { key: 'pRB',   label: 'RB',     sublabel: 'P(group ≥ 30 usable wks)', color: POS_COLOR.RB.fill },
+              { key: 'pWR',   label: 'WR',     sublabel: 'P(group ≥ 40 usable wks)', color: POS_COLOR.WR.fill },
+              { key: 'pTE',   label: 'TE',     sublabel: 'P(group ≥ 10 usable wks)', color: POS_COLOR.TE.fill },
+              { key: 'pCeil', label: 'Lineup', sublabel: 'P(≥ 160 pts ceiling)',      color: '#7c3aed'         },
+            ] as { key: keyof typeof scoreStats; label: string; sublabel: string; color: string }[]).map(({ key, label, sublabel, color }) => {
+              const s = scoreStats[key]
+              const fmt = (v: number) => `${Math.round(v * 100)}%`
+              // Positions in 0–100% space
+              const minX  = s.min  * 100
+              const p25X  = s.p25  * 100
+              const medX  = s.med  * 100
+              const avgX  = s.avg  * 100
+              const p75X  = s.p75  * 100
+              const maxX  = s.max  * 100
+              return (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold" style={{ color }}>{label}</span>
+                      <span className="text-xs" style={{ color: '#475569' }}>{sublabel}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: '#64748b' }}>
+                      <span>min <strong style={{ color: '#94a3b8' }}>{fmt(s.min)}</strong></span>
+                      <span>avg <strong style={{ color: '#e2e8f0' }}>{fmt(s.avg)}</strong></span>
+                      <span>med <strong style={{ color: '#94a3b8' }}>{fmt(s.med)}</strong></span>
+                      <span>max <strong style={{ color: '#94a3b8' }}>{fmt(s.max)}</strong></span>
+                    </div>
+                  </div>
+                  {/* Range track */}
+                  <div className="relative h-5 rounded" style={{ background: '#0f172a', border: '1px solid #1e293b' }}>
+                    {/* Min–Max band */}
+                    <div style={{
+                      position: 'absolute', top: 4, bottom: 4,
+                      left: `${minX}%`, width: `${maxX - minX}%`,
+                      background: color, opacity: 0.15, borderRadius: 2,
+                    }} />
+                    {/* IQR band (P25–P75) */}
+                    <div style={{
+                      position: 'absolute', top: 3, bottom: 3,
+                      left: `${p25X}%`, width: `${p75X - p25X}%`,
+                      background: color, opacity: 0.35, borderRadius: 2,
+                    }} />
+                    {/* Median tick */}
+                    <div style={{
+                      position: 'absolute', top: 2, bottom: 2, width: 2, borderRadius: 1,
+                      left: `${medX}%`, background: color, opacity: 0.7,
+                    }} />
+                    {/* Average marker (filled circle via div) */}
+                    <div style={{
+                      position: 'absolute', top: '50%', width: 7, height: 7,
+                      borderRadius: '50%', background: color,
+                      left: `${avgX}%`, transform: 'translate(-50%, -50%)',
+                    }} />
+                    {/* Avg % label */}
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      display: 'flex', alignItems: 'center',
+                      paddingLeft: 6, pointerEvents: 'none',
+                    }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: '#e2e8f0', letterSpacing: '0.03em' }}>
+                        avg {fmt(s.avg)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Grade tier distribution */}
+          <div className="mt-6">
+            <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#64748b' }}>
+              Team grade distribution
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(TIER_STYLE).map(([tier, style]) => {
+                const count = tierCounts[tier] ?? 0
+                if (count === 0) return null
+                return (
+                  <div key={tier} className="flex items-center gap-1.5 rounded px-2 py-1"
+                    style={{ background: style.bg, border: `1px solid ${style.border}` }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: style.text, letterSpacing: '0.04em' }}>{tier}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: style.text }}>{count}</span>
+                    <span style={{ fontSize: 10, color: style.text, opacity: 0.6 }}>
+                      ({Math.round((count / totalEntries) * 100)}%)
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
     </div>
   )

@@ -222,7 +222,7 @@ export default function ExposureDashboard() {
 
             {/* ── Draft Trends ── */}
             {activeTab === 'trends' && (
-              <DraftTrends entries={data.entries} />
+              <DraftTrends entries={data.entries} teamScores={teamScores} />
             )}
           </>
         )}
