@@ -486,7 +486,7 @@ export default function DraftTrends({ entries }: Props) {
       <section>
         <h2 className="section-header mb-1">Draft Phase Tendencies</h2>
         <p className="text-xs mb-4" style={{ color: '#64748b' }}>
-          How you allocate picks across the early, middle, and late rounds of the draft.
+          Positional share per draft phase vs. your overall average. Badge shows how much each position is over or under your portfolio norm in that window.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {phases.map(phase => (
@@ -494,22 +494,72 @@ export default function DraftTrends({ entries }: Props) {
               <div className="text-xs font-semibold mb-3" style={{ color: '#94a3b8' }}>{phase.label}</div>
               <div className="space-y-3">
                 {POSITIONS.map(pos => {
-                  const count = phase.counts[pos]
-                  const pct = phase.pct[pos]
-                  const maxPct = Math.max(...POSITIONS.map(p => phase.pct[p]))
+                  const count  = phase.counts[pos]
+                  const pct    = phase.pct[pos]
+                  const avg    = overallSplit[pos]        // portfolio-wide % for this position
+                  const ratio  = avg > 0 ? pct / avg : 0
+                  const dev    = pct - avg                // percentage-point deviation
+                  const absDev = Math.abs(dev)
+                  const isOver  = dev > 2
+                  const isUnder = dev < -2
+
+                  // Bar width: proportion relative to max in this phase
+                  const maxPct   = Math.max(...POSITIONS.map(p => phase.pct[p]))
                   const barWidth = maxPct > 0 ? (pct / maxPct) * 100 : 0
+                  // Bar color: position color when over, muted slate when under
+                  const barColor = isOver ? POS_COLOR[pos].fill : isUnder ? '#475569' : POS_COLOR[pos].fill
+
+                  // Badge
+                  const badgeLabel = absDev < 2
+                    ? 'avg'
+                    : isOver
+                      ? `+${Math.round(dev)}pp`
+                      : `${Math.round(dev)}pp`
+                  const badgeColor = absDev < 2
+                    ? '#475569'
+                    : isOver
+                      ? POS_COLOR[pos].fill
+                      : '#64748b'
+                  const badgeBg = absDev < 2
+                    ? '#1e293b'
+                    : isOver
+                      ? `${POS_COLOR[pos].fill}22`
+                      : '#1e293b'
+
                   return (
                     <div key={pos}>
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold" style={{ color: POS_COLOR[pos].fill }}>{pos}</span>
-                        <span style={{ fontSize: 11, color: '#94a3b8' }}>{count} picks · {Math.round(pct)}%</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold" style={{ color: POS_COLOR[pos].fill }}>{pos}</span>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px',
+                            borderRadius: 3, letterSpacing: '0.03em',
+                            color: badgeColor, background: badgeBg,
+                            border: `1px solid ${badgeColor}40`,
+                          }}>
+                            {badgeLabel}
+                          </span>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                          {count} · {Math.round(pct)}%
+                        </span>
                       </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: '#1e293b' }}>
+                      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: '#1e293b' }}>
+                        {/* Portfolio average marker */}
+                        {avg > 0 && maxPct > 0 && (
+                          <div style={{
+                            position: 'absolute', top: 0, bottom: 0, width: 2,
+                            left: `${(avg / maxPct) * 100}%`,
+                            background: '#334155',
+                            zIndex: 1,
+                          }} />
+                        )}
+                        {/* Actual fill */}
                         <div style={{
                           height: '100%',
                           width: `${barWidth}%`,
-                          background: POS_COLOR[pos].fill,
-                          opacity: 0.75,
+                          background: barColor,
+                          opacity: isUnder ? 0.4 : 0.75,
                           borderRadius: 9999,
                         }} />
                       </div>
@@ -517,8 +567,9 @@ export default function DraftTrends({ entries }: Props) {
                   )
                 })}
               </div>
-              <div className="mt-3 text-xs font-medium" style={{ color: '#475569' }}>
-                {phase.total} total picks
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs font-medium" style={{ color: '#475569' }}>{phase.total} picks</span>
+                <span className="text-xs" style={{ color: '#334155' }}>tick = your avg</span>
               </div>
             </div>
           ))}
