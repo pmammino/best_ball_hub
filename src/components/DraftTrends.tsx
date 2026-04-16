@@ -53,7 +53,9 @@ export default function DraftTrends({ entries }: Props) {
         const pos = pick.player.position
         if (!POSITIONS.includes(pos)) return
         roundMix[round][pos] = (roundMix[round][pos] ?? 0) + 1
-        picksByPos[pos].push(pick.pickNumber)
+        // Store team-relative round (1–N), not global pick number, so the
+        // box plot axis matches the rounds scale used everywhere else.
+        picksByPos[pos].push(round)
         entryCount[pos]++
       })
       for (const pos of POSITIONS) rosterCounts[pos].push(entryCount[pos])
@@ -210,7 +212,7 @@ export default function DraftTrends({ entries }: Props) {
       <section>
         <h2 className="section-header mb-1">Positional Draft Windows</h2>
         <p className="text-xs mb-4" style={{ color: '#64748b' }}>
-          Distribution of pick numbers for each position (P10 – P90). A wider box means more variation in when you target that position.
+          Distribution of draft rounds for each position (P10 – P90). A wider box means more variation in when you target that position.
         </p>
         <BoxPlotChart stats={boxStats} maxPick={picksPerTeam} />
       </section>
@@ -552,7 +554,7 @@ function BoxPlotChart({ stats, maxPick }: BoxPlotChartProps) {
 
         {/* Axis label */}
         <text x={PAD_L + innerW / 2} y={svgH} textAnchor="middle" fontSize={9} fill="#64748b">
-          Pick number
+          Round
         </text>
       </svg>
     </div>
