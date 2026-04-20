@@ -6,6 +6,7 @@ import type { TeamScore } from '@/lib/scoreTeam'
 import { TIER_STYLE } from '@/lib/scoreTeam'
 
 type MixMode = 'share' | 'relative'
+type PlayerInfo = { name: string; pos: Position; count: number; pct: number }
 
 interface Props {
   entries: DraftEntry[]
@@ -182,6 +183,62 @@ export default function DraftTrends({ entries, teamScores }: Props) {
     Array.from(teamScores, ([, s]) => s).forEach(s => { counts[s.tier] = (counts[s.tier] ?? 0) + 1 })
     return counts
   }, [teamScores])
+
+  // ── Variability: per-player exposure distribution ─────────────────────────
+  const { playerDist, coMatrix } = useMemo(() => {
+    const infoMap: Record<string, PlayerInfo> = {}
+    for (const entry of entries) {
+      for (const pick of entry.picks) {
+        const n = pick.player.fullName
+        if (!infoMap[n]) infoMap[n] = { name: n, pos: pick.player.position, count: 0, pct: 0 }
+        infoMap[n].count++
+      }
+    }
+    for (const p of Object.values(infoMap)) p.pct = (p.count / totalEntries) * 100
+
+    const byPos: Record<Position, PlayerInfo[]> = { QB: [], RB: [], WR: [], TE: [] }
+    for (const p of Object.values(infoMap)) {
+      if (POSITIONS.includes(p.pos)) byPos[p.pos].push(p)
+    }
+    for (const pos of POSITIONS) byPos[pos].sort((a, b) => b.count - a.count)
+
+    // Co-occurrence counts: coMatrix[A][B] = number of teams that have both
+    const co: Record<string, Record<string, number>> = {}
+    for (const entry of entries) {
+      const names = entry.picks.map(p => p.player.fullName)
+      for (const a of names) {
+        if (!co[a]) co[a] = {}
+        for (const b of names) {
+          if (a !== b) co[a][b] = (co[a][b] ?? 0) + 1
+        }
+      }
+    }
+    return { playerDist: { byPos, infoMap }, coMatrix: co }
+  }, [entries, totalEntries])
+
+  // Notable pairs: both players on ≥ 2 teams, co-appear ≥ 2 times
+  const notablePairs = useMemo(() => {
+    const seen = new Set<string>()
+    const pairs: { a: PlayerInfo; b: PlayerInfo; coCount: number; condA: number; condB: number }[] = []
+    for (const [aName, companions] of Object.entries(coMatrix)) {
+      const aInfo = playerDist.infoMap[aName]
+      if (!aInfo || aInfo.count < 2) continue
+      for (const [bName, coCount] of Object.entries(companions)) {
+        const key = [aName, bName].sort().join('|||')
+        if (seen.has(key)) continue
+        seen.add(key)
+        const bInfo = playerDist.infoMap[bName]
+        if (!bInfo || bInfo.count < 2 || coCount < 2) continue
+        pairs.push({ a: aInfo, b: bInfo, coCount, condA: coCount / aInfo.count, condB: coCount / bInfo.count })
+      }
+    }
+    return pairs.sort((x, y) => {
+      const xMax = Math.max(x.condA, x.condB), yMax = Math.max(y.condA, y.condB)
+      return yMax !== xMax ? yMax - xMax : y.coCount - x.coCount
+    })
+  }, [coMatrix, playerDist])
+
+  const [focusedPlayer, setFocusedPlayer] = useState<string | null>(null)
 
   return (
     <div className="space-y-8">
@@ -707,11 +764,262 @@ export default function DraftTrends({ entries, teamScores }: Props) {
         </section>
       )}
 
+      <Divider />
+
+      {/* ── 7. Portfolio Variability & Clustering ── */}
+      <section>
+        <h2 className="section-header mb-1">Portfolio Variability &amp; Clustering</h2>
+        <p className="text-xs mb-5" style={{ color: '#64748b' }}>
+          How concentrated or spread your picks are at each position, and which players consistently appear together across your teams.
+        </p>
+
+        {/* ── Player Exposure Distribution ── */}
+        <div className="mb-8">
+          <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: '#64748b' }}>
+            Player exposure distribution
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {POSITIONS.map(pos => {
+              const players = playerDist.byPos[pos]
+              const totalPicksAtPos = players.reduce((s, p) => s + p.count, 0)
+              const flatPct = players.length > 0 ? 100 / players.length : 0
+              const singlePct = 100 / totalEntries  // exposure from one appearance
+              const top3Share = players.slice(0, 3).reduce((s, p) => s + p.count, 0) / Math.max(totalPicksAtPos, 1)
+              const shown = players.slice(0, 8)
+
+              return (
+                <div key={pos} className="rounded-lg border p-4" style={{ background: 'var(--navy-800)', borderColor: 'var(--border)' }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold" style={{ color: POS_COLOR[pos].fill }}>{pos}</span>
+                      <span className="text-xs" style={{ color: '#64748b' }}>{players.length} unique</span>
+                    </div>
+                    <span className="text-xs" style={{ color: '#64748b' }}>
+                      top 3: <strong style={{ color: '#94a3b8' }}>{Math.round(top3Share * 100)}%</strong> of {pos} picks
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {shown.map(p => (
+                      <div key={p.name}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <button
+                            onClick={() => setFocusedPlayer(focusedPlayer === p.name ? null : p.name)}
+                            className="text-left hover:underline"
+                            style={{ fontSize: 11, color: focusedPlayer === p.name ? POS_COLOR[pos].fill : '#cbd5e1', fontWeight: focusedPlayer === p.name ? 700 : 400, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                          >
+                            {p.name}
+                          </button>
+                          <span style={{ fontSize: 11, color: '#94a3b8', whiteSpace: 'nowrap', marginLeft: 6 }}>
+                            {p.count}/{totalEntries} · {Math.round(p.pct)}%
+                          </span>
+                        </div>
+                        <div className="relative h-2 rounded-full overflow-visible" style={{ background: '#1e293b' }}>
+                          {/* Flat-distribution reference tick */}
+                          <div style={{
+                            position: 'absolute', top: -1, bottom: -1, width: 1.5,
+                            left: `${Math.min(flatPct, 100)}%`, background: '#334155', borderRadius: 1,
+                          }} />
+                          {/* Single-appearance reference tick */}
+                          {Math.abs(singlePct - flatPct) > 3 && (
+                            <div style={{
+                              position: 'absolute', top: -1, bottom: -1, width: 1.5,
+                              left: `${Math.min(singlePct, 100)}%`, background: '#1e293b', borderRadius: 1,
+                            }} />
+                          )}
+                          {/* Actual bar */}
+                          <div style={{
+                            height: '100%', width: `${Math.min(p.pct, 100)}%`,
+                            background: POS_COLOR[pos].fill,
+                            opacity: 0.75, borderRadius: 9999,
+                          }} />
+                        </div>
+                      </div>
+                    ))}
+                    {players.length > 8 && (
+                      <div style={{ fontSize: 10, color: '#475569', paddingTop: 2 }}>
+                        +{players.length - 8} more at ≤{Math.round(players[8]?.pct ?? 0)}%
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 mt-3" style={{ fontSize: 9, color: '#475569' }}>
+                    <span>
+                      <span style={{ display: 'inline-block', width: 8, height: 2, background: '#334155', verticalAlign: 'middle', marginRight: 3 }} />
+                      flat ({Math.round(flatPct)}%)
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs mt-2" style={{ color: '#475569' }}>
+            Tick mark = flat distribution ({'{'}100% ÷ unique players{'}'}). Click a player name to see their co-draft companions below.
+          </p>
+        </div>
+
+        {/* ── Player Co-Clustering ── */}
+        <div>
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#64748b' }}>
+              {focusedPlayer ? `Companions · ${focusedPlayer}` : 'Player co-clustering'}
+            </div>
+            {focusedPlayer && (
+              <button
+                onClick={() => setFocusedPlayer(null)}
+                style={{ fontSize: 11, color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                ← All pairs
+              </button>
+            )}
+          </div>
+
+          {focusedPlayer ? (
+            /* Drill-down: all companions for the focused player */
+            (() => {
+              const info = playerDist.infoMap[focusedPlayer]
+              const companions = Object.entries(coMatrix[focusedPlayer] ?? {})
+                .map(([bName, coCount]) => {
+                  const bInfo = playerDist.infoMap[bName]
+                  return bInfo ? { bInfo, coCount, cond: coCount / (info?.count ?? 1) } : null
+                })
+                .filter((x): x is NonNullable<typeof x> => x !== null)
+                .sort((a, b) => b.cond - a.cond)
+
+              return (
+                <div>
+                  <div className="text-xs mb-3" style={{ color: '#94a3b8' }}>
+                    <span style={{ color: POS_COLOR[info?.pos ?? 'QB'].fill, fontWeight: 700 }}>{focusedPlayer}</span>
+                    &nbsp;· {info?.count ?? 0}/{totalEntries} teams ({Math.round(info?.pct ?? 0)}% exposure)
+                    &nbsp;· showing all {companions.length} co-drafted players
+                  </div>
+                  <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                      <thead>
+                        <tr style={{ background: '#0f172a' }}>
+                          <th style={{ padding: '6px 12px', textAlign: 'left', color: '#64748b', fontWeight: 600, fontSize: 10 }}>COMPANION</th>
+                          <th style={{ padding: '6px 12px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 10 }}>THEIR EXP</th>
+                          <th style={{ padding: '6px 12px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 10 }}>TOGETHER</th>
+                          <th style={{ padding: '6px 12px', textAlign: 'right', color: '#64748b', fontWeight: 600, fontSize: 10 }}>
+                            OF {focusedPlayer.split(' ').pop()?.toUpperCase()}&apos;S TEAMS
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {companions.slice(0, 20).map(({ bInfo, coCount, cond }, idx) => (
+                          <tr key={bInfo.name} style={{ borderTop: '1px solid #1e293b', background: idx % 2 === 1 ? '#0f172a40' : undefined }}>
+                            <td style={{ padding: '6px 12px' }}>
+                              <div className="flex items-center gap-2">
+                                <span style={{ fontSize: 9, fontWeight: 700, color: POS_COLOR[bInfo.pos].fill, background: `${POS_COLOR[bInfo.pos].fill}20`, padding: '1px 4px', borderRadius: 2 }}>{bInfo.pos}</span>
+                                <button onClick={() => setFocusedPlayer(bInfo.name)}
+                                  style={{ fontSize: 12, color: '#cbd5e1', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                                  {bInfo.name}
+                                </button>
+                              </div>
+                            </td>
+                            <td style={{ padding: '6px 12px', textAlign: 'center', color: '#64748b', fontSize: 11 }}>
+                              {bInfo.count}/{totalEntries} · {Math.round(bInfo.pct)}%
+                            </td>
+                            <td style={{ padding: '6px 12px', textAlign: 'center', color: '#94a3b8', fontWeight: 600, fontSize: 11 }}>{coCount}</td>
+                            <td style={{ padding: '6px 12px', textAlign: 'right' }}>
+                              <div className="flex items-center justify-end gap-2">
+                                <div style={{ width: 40, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${cond * 100}%`, background: POS_COLOR[bInfo.pos].fill, opacity: 0.7 }} />
+                                </div>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: cond >= 0.75 ? '#f1f5f9' : '#94a3b8', minWidth: 36, textAlign: 'right' }}>
+                                  {Math.round(cond * 100)}%
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )
+            })()
+          ) : (
+            /* Overview: notable pairs */
+            notablePairs.length === 0 ? (
+              <p className="text-xs" style={{ color: '#475569' }}>
+                Not enough co-appearances to surface notable pairs (need at least 2 teams with each player).
+              </p>
+            ) : (
+              <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#0f172a' }}>
+                      <th style={{ padding: '6px 12px', textAlign: 'left', color: '#64748b', fontWeight: 600, fontSize: 10 }}>PLAYER A</th>
+                      <th style={{ padding: '6px 12px', textAlign: 'left', color: '#64748b', fontWeight: 600, fontSize: 10 }}>PLAYER B</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 10 }}>TOGETHER</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 10 }}>P(B|A)</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center', color: '#64748b', fontWeight: 600, fontSize: 10 }}>P(A|B)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {notablePairs.slice(0, 20).map(({ a, b, coCount, condA, condB }, idx) => (
+                      <tr key={`${a.name}|${b.name}`} style={{ borderTop: '1px solid #1e293b', background: idx % 2 === 1 ? '#0f172a40' : undefined }}>
+                        <td style={{ padding: '7px 12px' }}>
+                          <div className="flex items-center gap-1.5">
+                            <span style={{ fontSize: 9, fontWeight: 700, color: POS_COLOR[a.pos].fill, background: `${POS_COLOR[a.pos].fill}20`, padding: '1px 4px', borderRadius: 2 }}>{a.pos}</span>
+                            <button onClick={() => setFocusedPlayer(a.name)}
+                              style={{ fontSize: 12, color: '#cbd5e1', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                              {a.name}
+                            </button>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>{Math.round(a.pct)}%</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '7px 12px' }}>
+                          <div className="flex items-center gap-1.5">
+                            <span style={{ fontSize: 9, fontWeight: 700, color: POS_COLOR[b.pos].fill, background: `${POS_COLOR[b.pos].fill}20`, padding: '1px 4px', borderRadius: 2 }}>{b.pos}</span>
+                            <button onClick={() => setFocusedPlayer(b.name)}
+                              style={{ fontSize: 12, color: '#cbd5e1', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>
+                              {b.name}
+                            </button>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>{Math.round(b.pct)}%</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '7px 8px', textAlign: 'center', color: '#94a3b8', fontWeight: 600 }}>{coCount}/{totalEntries}</td>
+                        <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                          <CondBadge value={condA} />
+                        </td>
+                        <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                          <CondBadge value={condB} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="px-3 py-2 text-xs" style={{ background: '#0f172a', color: '#475569', borderTop: '1px solid #1e293b' }}>
+                  P(B|A) = % of Player A&apos;s teams that also have Player B. Click any player name to see their full companion profile.
+                  {notablePairs.length > 20 && ` Showing 20 of ${notablePairs.length} pairs.`}
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      </section>
+
     </div>
   )
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function CondBadge({ value }: { value: number }) {
+  const pct = Math.round(value * 100)
+  const color = value >= 0.9 ? '#f87171' : value >= 0.7 ? '#fb923c' : value >= 0.5 ? '#fbbf24' : '#64748b'
+  return (
+    <span style={{
+      display: 'inline-block', minWidth: 36, fontSize: 11, fontWeight: 700,
+      color, padding: '1px 6px', borderRadius: 3,
+      background: `${color}18`, border: `1px solid ${color}30`,
+    }}>
+      {pct}%
+    </span>
+  )
+}
 
 function Divider() {
   return <div className="border-t my-1" style={{ borderColor: 'var(--border)' }} />
