@@ -7,7 +7,7 @@ import { processRawRows, applyFilters } from '@/lib/processData'
 
 const DEFAULT_FILTERS: Filters = { position: 'ALL', tournament: 'ALL', nflTeam: 'ALL' }
 
-export function useDraftData() {
+export function useDraftData(defaultCsvUrl = '/default-data.csv') {
   const [data, setData] = useState<ProcessedData | null>(null)
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
@@ -16,7 +16,12 @@ export function useDraftData() {
   const [usingDefault, setUsingDefault] = useState(true)
 
   useEffect(() => {
-    fetch('/default-data.csv')
+    setIsLoading(true)
+    setError(null)
+    setFilters(DEFAULT_FILTERS)
+    setSelectedEntryId(null)
+    setUsingDefault(true)
+    fetch(defaultCsvUrl)
       .then((r) => r.text())
       .then((text) => parseCSVFromText(text))
       .then((rows) => {
@@ -27,7 +32,7 @@ export function useDraftData() {
         setError(err.message ?? 'Failed to load default data')
         setIsLoading(false)
       })
-  }, [])
+  }, [defaultCsvUrl])
 
   async function loadFromFile(file: File) {
     setIsLoading(true)
@@ -48,7 +53,7 @@ export function useDraftData() {
   function resetToDefault() {
     setIsLoading(true)
     setError(null)
-    fetch('/default-data.csv')
+    fetch(defaultCsvUrl)
       .then((r) => r.text())
       .then(async (text) => {
         const rows = await parseCSVFromText(text)

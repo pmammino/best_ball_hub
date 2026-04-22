@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useDraftData } from '@/hooks/useDraftData'
 import { usePredictions, PredSplit } from '@/hooks/usePredictions'
+import { use2025Predictions } from '@/hooks/use2025Predictions'
 import { useTeamScores } from '@/hooks/useTeamScores'
 import CsvUpload from './CsvUpload'
 import FilterBar from './FilterBar'
@@ -13,6 +14,7 @@ import PlayerComboPanel from './PlayerComboPanel'
 import DraftTrends from './DraftTrends'
 
 type Tab = 'teams' | 'exposures' | 'combo' | 'trends'
+type Season = '2025' | '2026'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'teams',     label: 'Teams'        },
@@ -34,13 +36,22 @@ const SPLIT_ACTIVE: Record<PredSplit, string> = {
 }
 
 export default function ExposureDashboard() {
+  const [activeSeason, setActiveSeason] = useState<Season>('2026')
+  const defaultCsvUrl = activeSeason === '2025' ? '/default-data-2025.csv' : '/default-data.csv'
+
   const {
     data, filters, setFilters, selectedEntryId, setSelectedEntryId,
     filteredExposures, selectedEntry, loadFromFile, resetToDefault,
     isLoading: draftLoading, error: draftError, usingDefault,
-  } = useDraftData()
+  } = useDraftData(defaultCsvUrl)
 
-  const { getPred, isLoading: predLoading, error: predError } = usePredictions()
+  const { predictions: pred26, getPred: getPred26, isLoading: pred26Loading, error: pred26Error } = usePredictions()
+  const { getPred: getPred25, isLoading: pred25Loading, error: pred25Error } = use2025Predictions(pred26)
+
+  const getPred = activeSeason === '2025' ? getPred25 : getPred26
+  const predLoading = activeSeason === '2025' ? pred25Loading : pred26Loading
+  const predError = activeSeason === '2025' ? pred25Error : pred26Error
+
   const teamScores = useTeamScores(data?.entries ?? [], getPred)
 
   const [activeTab,   setActiveTab]   = useState<Tab>('teams')
@@ -52,6 +63,12 @@ export default function ExposureDashboard() {
   }
   function removeComboPlayer(name: string) {
     setComboNames(prev => prev.filter(n => n !== name))
+  }
+
+  function switchSeason(s: Season) {
+    setActiveSeason(s)
+    setActiveTab('teams')
+    setComboNames([])
   }
 
   const isLoading = draftLoading || predLoading
@@ -67,13 +84,32 @@ export default function ExposureDashboard() {
       <header className="sticky top-0 z-20 border-b" style={{ background: '#000000', borderColor: '#1a1a2e' }}>
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6">
 
-          {/* Top row: logo + upload */}
+          {/* Top row: logo + season toggle + upload */}
           <div className="flex items-center justify-between h-12 gap-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <div className="w-7 h-7 rounded flex items-center justify-center text-white font-black text-xs" style={{ background: 'var(--accent)' }}>BB</div>
                 <span className="font-bold text-white text-base tracking-tight">BestBall <span style={{ color: '#a78bfa' }}>Hub</span></span>
               </div>
+
+              {/* Season toggle */}
+              <div className="flex rounded overflow-hidden border" style={{ borderColor: 'var(--border-light)' }}>
+                {(['2025', '2026'] as Season[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => switchSeason(s)}
+                    className="px-3 py-1 text-xs font-bold transition-all"
+                    style={{
+                      background: activeSeason === s ? '#7c3aed' : 'var(--navy-800)',
+                      color: activeSeason === s ? '#ffffff' : '#64748b',
+                      borderRight: s === '2025' ? '1px solid var(--border-light)' : undefined,
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
               {data && (
                 <span className="hidden sm:block text-xs px-2 py-0.5 rounded-full border" style={{ color: '#64748b', borderColor: 'var(--border-light)', background: 'var(--navy-800)' }}>
                   {data.totalEntries} teams · {data.entries[0]?.picks.length ?? 0} picks/team
