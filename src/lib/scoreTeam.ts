@@ -16,8 +16,10 @@ export interface TeamScoreComponents {
 }
 
 export interface TeamScore extends TeamScoreComponents {
-  percentile: number  // rank within current portfolio (0–100)
-  tier: Tier
+  percentile: number     // relative rank within portfolio (0–100; 100 = best)
+  portfolioRank: number  // 1-indexed rank within portfolio (1 = best team)
+  portfolioSize: number  // total teams in portfolio
+  tier: Tier             // absolute grade based on sRaw, not relative rank
 }
 
 /** P that a single positional group exceeds the team-level benchmark. */
@@ -87,15 +89,24 @@ export function computeTeamScore(
   return { pQB, pRB, pWR, pTE, pCeil, sPos, sRaw }
 }
 
-export function toTier(percentile: number): Tier {
-  if (percentile >= 90) return 'A+'
-  if (percentile >= 80) return 'A'
-  if (percentile >= 70) return 'A-'
-  if (percentile >= 60) return 'B+'
-  if (percentile >= 50) return 'B'
-  if (percentile >= 40) return 'B-'
-  if (percentile >= 30) return 'C'
-  if (percentile >= 15) return 'D'
+/**
+ * Converts an absolute sRaw score to a tier grade.
+ *
+ * sRaw = 0.65 × sPos + 0.35 × pCeil; calibrated range:
+ *   ~0.20 → very weak team (poor positional probs + low ceiling)
+ *   ~0.38 → average well-constructed team
+ *   ~0.52 → good team above average
+ *   ~0.65+ → elite construction
+ */
+export function toTier(sRaw: number): Tier {
+  if (sRaw >= 0.64) return 'A+'
+  if (sRaw >= 0.57) return 'A'
+  if (sRaw >= 0.50) return 'A-'
+  if (sRaw >= 0.45) return 'B+'
+  if (sRaw >= 0.39) return 'B'
+  if (sRaw >= 0.33) return 'B-'
+  if (sRaw >= 0.26) return 'C'
+  if (sRaw >= 0.19) return 'D'
   return 'F'
 }
 
@@ -112,19 +123,31 @@ export const TIER_STYLE: Record<Tier, { text: string; bg: string; border: string
   'F' : { text: '#f87171', bg: '#450a0a', border: '#f8717150' }, // red
 }
 
-/** Converts a map of raw scores into ranked TeamScore objects (percentile within portfolio). */
+/**
+ * Converts a map of raw scores into ranked TeamScore objects.
+ * Tier is graded on absolute sRaw thresholds — not relative portfolio rank —
+ * so a 3-team portfolio doesn't force an A+/B/F spread.
+ * portfolioRank (1 = best) and percentile (100 = best) provide relative context.
+ */
 export function rankScores(raw: Map<string, TeamScoreComponents>): Map<string, TeamScore> {
   const entries = Array.from(raw.entries())
   const n = entries.length
   if (n === 0) return new Map()
 
-  // Sort ascending so rank 0 = worst → 0th percentile
-  const sorted = [...entries].sort(([, a], [, b]) => a.sRaw - b.sRaw)
+  // Sort descending so index 0 = best team (rank 1)
+  const sorted = [...entries].sort(([, a], [, b]) => b.sRaw - a.sRaw)
   const result  = new Map<string, TeamScore>()
 
-  sorted.forEach(([id, components], rank) => {
-    const percentile = n === 1 ? 50 : Math.round((rank / (n - 1)) * 100)
-    result.set(id, { ...components, percentile, tier: toTier(percentile) })
+  sorted.forEach(([id, components], idx) => {
+    const portfolioRank = idx + 1
+    const percentile = n === 1 ? 50 : Math.round(((n - 1 - idx) / (n - 1)) * 100)
+    result.set(id, {
+      ...components,
+      percentile,
+      portfolioRank,
+      portfolioSize: n,
+      tier: toTier(components.sRaw),
+    })
   })
 
   return result

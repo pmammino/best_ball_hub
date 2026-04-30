@@ -140,9 +140,14 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: P
                   {teamScore.tier}
                 </span>
                 <span style={{ fontSize: 10, color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
-                  {ordinal(teamScore.percentile)} of {/* total computed externally */}
-                  <span style={{ color: ts.text, fontWeight: 700 }}> {teamScore.percentile}</span>
-                  <span style={{ color: '#334155' }}>/100</span>
+                  {teamScore.portfolioSize > 1 ? (
+                    <>
+                      <span style={{ color: ts.text, fontWeight: 700 }}>#{teamScore.portfolioRank}</span>
+                      <span style={{ color: '#334155' }}> of {teamScore.portfolioSize} teams</span>
+                    </>
+                  ) : (
+                    <span style={{ color: '#334155' }}>score: {teamScore.sRaw.toFixed(2)}</span>
+                  )}
                 </span>
               </div>
             )
