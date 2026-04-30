@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { PlayerPrediction } from './usePredictions'
-import { parse2025Projections } from '@/lib/parse2025Projections'
+import { parseLegacyProjections } from '@/lib/parseProjections'
 
 function stripSuffix(name: string): string {
   return name.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '').trim()
@@ -23,10 +23,15 @@ export function use2025Predictions(pred26: PlayerPrediction[]) {
     if (pred26.length === 0) return
     setIsLoading(true)
 
+    const pred26ByNFLId = new Map<string, PlayerPrediction>()
+    for (const p of pred26) {
+      pred26ByNFLId.set(String(p.NFLNewsID), p)
+    }
+
     fetch('/projections-2025.csv')
       .then((r) => r.text())
       .then((text) => {
-        setPredByName(parse2025Projections(text, pred26))
+        setPredByName(parseLegacyProjections(text, pred26ByNFLId))
         setIsLoading(false)
       })
       .catch((err) => {

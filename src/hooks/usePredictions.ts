@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { parseNamedProjections } from '@/lib/parseProjections'
 
 export type PredSplit = 'C' | 'M' | 'F'
 
@@ -37,31 +38,33 @@ function normalizeName(name: string): string {
 }
 
 export function usePredictions() {
-  const [predictions, setPredictions] = useState<PlayerPrediction[]>([])
+  const [predByName, setPredByName] = useState<Map<string, PlayerPrediction>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/predictions.json')
-      .then((r) => r.json())
-      .then((data: PlayerPrediction[]) => {
-        setPredictions(data)
+    fetch('/projections.csv')
+      .then((r) => r.text())
+      .then((text) => {
+        setPredByName(parseNamedProjections(text))
         setIsLoading(false)
       })
       .catch((err) => {
-        setError(err.message ?? 'Failed to load predictions')
+        setError(err?.message ?? 'Failed to load projections')
         setIsLoading(false)
       })
   }, [])
 
-  const { predByName, predByNorm, predByLastFirst } = useMemo(() => {
-    const predByName      = new Map<string, PlayerPrediction>()
+  const predictions = useMemo(
+    () => Array.from<[string, PlayerPrediction]>(predByName as Map<string, PlayerPrediction>).map(([, p]) => p),
+    [predByName],
+  )
+
+  const { predByNorm, predByLastFirst } = useMemo(() => {
     const predByNorm      = new Map<string, PlayerPrediction>()
     const predByLastFirst = new Map<string, PlayerPrediction>()
 
-    for (const p of predictions) {
-      const exact = p.fullName.toLowerCase()
-      predByName.set(exact, p)
+    for (const [, p] of Array.from<[string, PlayerPrediction]>(predByName as Map<string, PlayerPrediction>)) {
       predByNorm.set(normalizeName(p.fullName), p)
 
       const parts = p.fullName.trim().split(/\s+/)
@@ -71,10 +74,9 @@ export function usePredictions() {
         predByLastFirst.set(`${last},${first[0]}`, p)
       }
     }
-    return { predByName, predByNorm, predByLastFirst }
-  }, [predictions])
+    return { predByNorm, predByLastFirst }
+  }, [predByName])
 
-  // Stable reference — only changes when lookup maps change (i.e. predictions load)
   const getPred = useCallback((fullName: string): PlayerPrediction | undefined => {
     const exact = fullName.toLowerCase()
     if (predByName.has(exact)) return predByName.get(exact)
