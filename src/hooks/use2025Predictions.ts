@@ -7,11 +7,11 @@ import { parse2025Projections } from '@/lib/parse2025Projections'
 function stripSuffix(name: string): string {
   return name.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '').trim()
 }
-function stripPeriods(name: string): string {
-  return name.replace(/\./g, '').replace(/\s+/g, ' ').trim()
+function stripSpecialChars(name: string): string {
+  return name.replace(/[.']/g, '').replace(/\s+/g, ' ').trim()
 }
 function normalizeName(name: string): string {
-  return stripSuffix(stripPeriods(name)).toLowerCase()
+  return stripSuffix(stripSpecialChars(name)).toLowerCase()
 }
 
 export function use2025Predictions(pred26: PlayerPrediction[]) {
@@ -39,7 +39,7 @@ export function use2025Predictions(pred26: PlayerPrediction[]) {
     const predByNorm = new Map<string, PlayerPrediction>()
     const predByLastFirst = new Map<string, PlayerPrediction>()
 
-    for (const pred of Array.from(predByName.values())) {
+    for (const [, pred] of Array.from<[string, PlayerPrediction]>(predByName as Map<string, PlayerPrediction>)) {
       predByNorm.set(normalizeName(pred.fullName), pred)
       const parts = pred.fullName.trim().split(/\s+/)
       if (parts.length >= 2) {

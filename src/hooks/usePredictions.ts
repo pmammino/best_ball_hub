@@ -29,11 +29,11 @@ export interface PlayerPrediction {
 function stripSuffix(name: string): string {
   return name.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '').trim()
 }
-function stripPeriods(name: string): string {
-  return name.replace(/\./g, '').replace(/\s+/g, ' ').trim()
+function stripSpecialChars(name: string): string {
+  return name.replace(/[.']/g, '').replace(/\s+/g, ' ').trim()
 }
 function normalizeName(name: string): string {
-  return stripSuffix(stripPeriods(name)).toLowerCase()
+  return stripSuffix(stripSpecialChars(name)).toLowerCase()
 }
 
 export function usePredictions() {
