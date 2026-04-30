@@ -48,7 +48,11 @@ export default function ExposureDashboard() {
   const { predictions: pred26, getPred: getPred26, isLoading: pred26Loading, error: pred26Error } = usePredictions()
   const { getPred: getPred25, isLoading: pred25Loading, error: pred25Error } = use2025Predictions(pred26)
 
-  const getPred = activeSeason === '2025' ? getPred25 : getPred26
+  // In 2025 mode: use 2025 projections with 2026 as fallback for players
+  // missing from projections-2025.csv (file coverage ends at NFLNewsID 19126)
+  const getPred = activeSeason === '2025'
+    ? (name: string) => getPred25(name) ?? getPred26(name)
+    : getPred26
   const predLoading = activeSeason === '2025' ? pred25Loading : pred26Loading
   const predError = activeSeason === '2025' ? pred25Error : pred26Error
 
