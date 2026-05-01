@@ -119,6 +119,14 @@ export function roundPercentile(predRate: number, avRate: number): number | null
 
 /**
  * Returns the delta (predRate - AVRate) and a letter grade.
+ *
+ * Grade thresholds (pct = delta / avRate):
+ *   A+  ≥ +50%  elite value for the round
+ *   A   ≥ +20%  clearly above average
+ *   B   ≥   0%  meets or beats benchmark (below benchmark = C or worse)
+ *   C   ≥ −20%  noticeably below average
+ *   D   ≥ −40%  significantly underperforming round expectation
+ *   F   < −40%  very poor value
  */
 export function gradeRate(predRate: number, avRate: number): {
   delta: number
@@ -133,9 +141,9 @@ export function gradeRate(predRate: number, avRate: number): {
 
   if (pct >= 0.5) {         grade = 'A+'; color = 'text-emerald-300' }
   else if (pct >= 0.2) {    grade = 'A';  color = 'text-green-400'   }
-  else if (pct >= -0.1) {   grade = 'B';  color = 'text-lime-400'    }
-  else if (pct >= -0.3) {   grade = 'C';  color = 'text-yellow-400'  }
-  else if (pct >= -0.5) {   grade = 'D';  color = 'text-orange-400'  }
+  else if (pct >= 0.0) {    grade = 'B';  color = 'text-lime-400'    }
+  else if (pct >= -0.2) {   grade = 'C';  color = 'text-yellow-400'  }
+  else if (pct >= -0.4) {   grade = 'D';  color = 'text-orange-400'  }
   else {                    grade = 'F';  color = 'text-red-400'      }
 
   return { delta, grade, color }
