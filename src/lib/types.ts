@@ -55,7 +55,7 @@ export interface ProcessedData {
   nflTeams: string[]
 }
 
-export type SortField = 'name' | 'position' | 'nflTeam' | 'count' | 'exposurePct' | 'avgPickNumber' | 'predRate' | 'predAVG' | 'predMax'
+export type SortField = 'name' | 'position' | 'nflTeam' | 'count' | 'exposurePct' | 'avgPickNumber' | 'adp' | 'adpValue' | 'predRate' | 'predAVG' | 'predMax'
 export type SortDirection = 'asc' | 'desc'
 
 export interface Filters {

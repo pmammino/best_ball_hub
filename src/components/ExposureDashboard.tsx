@@ -5,6 +5,7 @@ import { useDraftData } from '@/hooks/useDraftData'
 import { usePredictions, PredSplit } from '@/hooks/usePredictions'
 import { use2025Predictions } from '@/hooks/use2025Predictions'
 import { useTeamScores } from '@/hooks/useTeamScores'
+import { useAdpData } from '@/hooks/useAdpData'
 import CsvUpload from './CsvUpload'
 import FilterBar from './FilterBar'
 import ExposureTable from './ExposureTable'
@@ -57,6 +58,7 @@ export default function ExposureDashboard() {
   const predError = activeSeason === '2025' ? pred25Error : pred26Error
 
   const teamScores = useTeamScores(data?.entries ?? [], getPred)
+  const { adpMap } = useAdpData()
 
   const [activeTab,   setActiveTab]   = useState<Tab>('teams')
   const [activeSplit, setActiveSplit] = useState<PredSplit>('M')
@@ -207,6 +209,7 @@ export default function ExposureDashboard() {
                       getPred={getPred}
                       activeSplit={activeSplit}
                       teamScore={teamScores.get(selectedEntry.entryId)}
+                      adpMap={adpMap}
                     />
                   </div>
                 ) : (
@@ -242,6 +245,7 @@ export default function ExposureDashboard() {
                   activeSplit={activeSplit}
                   comboNames={comboNames}
                   onAddToCombo={(name) => { addComboPlayer(name); setActiveTab('combo') }}
+                  adpMap={adpMap}
                 />
               </div>
             )}

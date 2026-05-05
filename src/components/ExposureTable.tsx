@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { PlayerExposure, SortField, SortDirection } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
+import { AdpEntry } from '@/hooks/useAdpData'
 
 interface Props {
   exposures: PlayerExposure[]
@@ -11,6 +12,7 @@ interface Props {
   activeSplit: PredSplit
   comboNames?: string[]
   onAddToCombo?: (name: string) => void
+  adpMap?: Map<string, AdpEntry>
 }
 
 const POS_BADGE: Record<string, string> = {
@@ -24,7 +26,7 @@ const SPLIT_COLOR: Record<PredSplit, string> = { C: '#fcd34d', M: '#6ee7b7', F: 
 
 type ColKey = SortField | 'predRate' | 'predAVG' | 'predMax'
 
-type Col = { key: ColKey; label: string; right?: boolean; pred?: boolean }
+type Col = { key: ColKey; label: string; right?: boolean; pred?: boolean; adpOnly?: boolean }
 
 const COLS: Col[] = [
   { key: 'name',          label: 'PLAYER'  },
@@ -33,18 +35,35 @@ const COLS: Col[] = [
   { key: 'count',         label: 'TEAMS',  right: true },
   { key: 'exposurePct',   label: 'EXP %',  right: true },
   { key: 'avgPickNumber', label: 'AVG PK', right: true },
+  { key: 'adp',           label: 'ADP',    right: true, adpOnly: true },
+  { key: 'adpValue',      label: '±ADP',   right: true, adpOnly: true },
   { key: 'predRate',      label: 'RATE',   right: true, pred: true },
   { key: 'predAVG',       label: 'AVG',    right: true, pred: true },
   { key: 'predMax',       label: 'MAX',    right: true, pred: true },
 ]
 
-function sort(rows: PlayerExposure[], field: ColKey, dir: SortDirection, getPred: Props['getPred'], split: PredSplit) {
+function sort(
+  rows: PlayerExposure[],
+  field: ColKey,
+  dir: SortDirection,
+  getPred: Props['getPred'],
+  split: PredSplit,
+  adpMap: Map<string, AdpEntry> | undefined,
+) {
   return [...rows].sort((a, b) => {
     let av: string | number, bv: string | number
     if (field === 'predRate' || field === 'predAVG' || field === 'predMax') {
       const key = field as 'predRate' | 'predAVG' | 'predMax'
       av = getPred(a.player.fullName)?.[split]?.[key] ?? -1
       bv = getPred(b.player.fullName)?.[split]?.[key] ?? -1
+    } else if (field === 'adp') {
+      av = adpMap?.get(a.player.appearance)?.adp ?? 9999
+      bv = adpMap?.get(b.player.appearance)?.adp ?? 9999
+    } else if (field === 'adpValue') {
+      const adpA = adpMap?.get(a.player.appearance)?.adp
+      const adpB = adpMap?.get(b.player.appearance)?.adp
+      av = adpA !== undefined ? a.avgPickNumber - adpA : -9999
+      bv = adpB !== undefined ? b.avgPickNumber - adpB : -9999
     } else {
       switch (field as SortField) {
         case 'name':          av = a.player.fullName;  bv = b.player.fullName;  break
@@ -62,7 +81,7 @@ function sort(rows: PlayerExposure[], field: ColKey, dir: SortDirection, getPred
   })
 }
 
-export default function ExposureTable({ exposures, totalEntries, getPred, activeSplit, comboNames = [], onAddToCombo }: Props) {
+export default function ExposureTable({ exposures, totalEntries, getPred, activeSplit, comboNames = [], onAddToCombo, adpMap }: Props) {
   const [sortField, setSortField] = useState<ColKey>('exposurePct')
   const [sortDir, setSortDir]     = useState<SortDirection>('desc')
 
@@ -77,23 +96,29 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
     </div>
   )
 
-  const sorted = sort(exposures, sortField, sortDir, getPred, activeSplit)
+  const sorted = sort(exposures, sortField, sortDir, getPred, activeSplit, adpMap)
   const splitHex = SPLIT_COLOR[activeSplit]
+  const hasAdp = adpMap && adpMap.size > 0
 
   return (
     <div className="rounded-lg overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            {/* Prediction group header */}
+            {/* Group header row */}
             <tr style={{ background: 'var(--navy-900)', borderBottom: '1px solid var(--border)' }}>
               <td colSpan={6} style={{ padding: '4px 12px', color: '#334155', fontSize: '10px' }} />
+              {hasAdp && (
+                <td colSpan={2} style={{ padding: '4px 12px', textAlign: 'right', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: '#64748b', opacity: 0.8 }}>
+                  ADP
+                </td>
+              )}
               <td colSpan={3} style={{ padding: '4px 12px', textAlign: 'right', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', color: splitHex, opacity: 0.7 }}>
                 {activeSplit === 'C' ? 'CEILING' : activeSplit === 'M' ? 'MEDIAN' : 'FLOOR'} PROJECTION
               </td>
             </tr>
             <tr style={{ background: 'var(--navy-800)', borderBottom: '1px solid var(--border)' }}>
-              {COLS.map(col => (
+              {COLS.filter(col => !col.adpOnly || hasAdp).map(col => (
                 <th key={col.key}
                   onClick={() => handleSort(col.key)}
                   style={{
@@ -106,9 +131,11 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
                     fontSize: '10px',
                     color: col.pred
                       ? sortField === col.key ? splitHex : '#475569'
-                      : sortField === col.key ? '#94a3b8' : '#475569',
+                      : col.adpOnly
+                        ? sortField === col.key ? '#94a3b8' : '#334155'
+                        : sortField === col.key ? '#94a3b8' : '#475569',
                     whiteSpace: 'nowrap',
-                    borderRight: col.key === 'avgPickNumber' ? '1px solid var(--border)' : undefined,
+                    borderRight: (col.key === 'avgPickNumber' || col.key === 'adpValue') ? '1px solid var(--border)' : undefined,
                     borderLeft: col.key === 'predRate' ? '1px solid var(--border)' : undefined,
                   }}
                 >
@@ -120,8 +147,12 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
           </thead>
           <tbody>
             {sorted.map((exp, i) => {
-              const pred = getPred(exp.player.fullName)
-              const sd = pred?.[activeSplit]
+              const pred     = getPred(exp.player.fullName)
+              const sd       = pred?.[activeSplit]
+              const adpEntry = adpMap?.get(exp.player.appearance)
+              const adp      = adpEntry?.adp
+              // Positive = fell to you (good); negative = you reached (bad)
+              const adpDelta = adp !== undefined ? exp.avgPickNumber - adp : null
               return (
                 <tr key={exp.player.appearance}
                   style={{
@@ -164,9 +195,29 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
                       </span>
                     </div>
                   </td>
-                  <td style={{ padding: '7px 12px', textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>
+                  <td style={{ padding: '7px 12px', textAlign: 'right', color: '#64748b', fontVariantNumeric: 'tabular-nums', borderRight: hasAdp ? undefined : '1px solid var(--border)' }}>
                     {exp.avgPickNumber.toFixed(1)}
                   </td>
+
+                  {/* ADP columns — only rendered when adpMap is loaded */}
+                  {hasAdp && (
+                    <td style={{ padding: '7px 12px', textAlign: 'right', color: '#475569', fontVariantNumeric: 'tabular-nums' }}>
+                      {adp !== undefined ? adp.toFixed(1) : <span style={{ color: '#1e293b' }}>—</span>}
+                    </td>
+                  )}
+                  {hasAdp && (
+                    <td style={{ padding: '7px 12px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>
+                      {adpDelta !== null ? (() => {
+                        const color = adpDelta >= 10 ? '#10b981' : adpDelta >= 3 ? '#84cc16' : adpDelta >= -3 ? '#94a3b8' : adpDelta >= -10 ? '#f59e0b' : '#ef4444'
+                        return (
+                          <span style={{ color, fontWeight: 700, fontSize: 10 }}>
+                            {adpDelta >= 0 ? '+' : ''}{adpDelta.toFixed(1)}
+                          </span>
+                        )
+                      })() : <span style={{ color: '#1e293b' }}>—</span>}
+                    </td>
+                  )}
+
                   {/* Prediction columns */}
                   <td style={{ padding: '7px 12px', textAlign: 'right', borderLeft: '1px solid var(--border)' }}>
                     {sd ? (

@@ -7,12 +7,14 @@ import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS, r
 import { simulateBestBall } from '@/lib/simulateBestBall'
 import { TeamScore } from '@/hooks/useTeamScores'
 import { TIER_STYLE } from '@/lib/scoreTeam'
+import { AdpEntry } from '@/hooks/useAdpData'
 
 interface Props {
   entry: DraftEntry
   getPred: (fullName: string) => PlayerPrediction | undefined
   activeSplit: PredSplit
   teamScore?: TeamScore
+  adpMap?: Map<string, AdpEntry>
 }
 
 // Position accent colors
@@ -67,7 +69,7 @@ function GradeBadge({ grade }: { grade: string }) {
   )
 }
 
-export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: Props) {
+export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adpMap }: Props) {
   const [posFilter, setPosFilter] = useState<Position | null>(null)
 
   function togglePosFilter(pos: Position) {
@@ -362,14 +364,14 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: P
             <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--navy-800)', borderBottom: '1px solid var(--border)' }}>
-                  {['#','PLAYER','POS','NFL','RD','RATE','AVG(BENCH)','GRADE','PCTILE','P(↑)','AVG','MAX'].map((h, i) => (
+                  {(['#','PLAYER','POS','NFL','RD','ADP','±ADP','RATE','BENCH','GRADE','PCTILE','P(↑)','AVG','MAX'] as const).map((h, i) => (
                     <th key={i} style={{
                       padding: '7px 10px',
-                      textAlign: i >= 5 ? 'right' : i === 3 || i === 4 ? 'center' : 'left',
+                      textAlign: i >= 7 ? 'right' : (i === 3 || i === 4) ? 'center' : i === 5 || i === 6 ? 'right' : 'left',
                       fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
-                      color: i >= 5 ? '#475569' : '#334155',
+                      color: i >= 7 ? '#475569' : i === 5 ? '#64748b' : i === 6 ? '#64748b' : '#334155',
                       whiteSpace: 'nowrap',
-                      borderRight: (i === 4 || i === 9) ? '1px solid var(--border)' : undefined,
+                      borderRight: (i === 4 || i === 6 || i === 11) ? '1px solid var(--border)' : undefined,
                     }}>
                       {h}
                     </th>
@@ -378,19 +380,25 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: P
               </thead>
               <tbody>
                 {entry.picks.filter(p => !posFilter || p.player.position === posFilter).map((pick, i) => {
-                  const predEntry = getPred(pick.player.fullName)
-                  const pred      = predEntry?.[activeSplit]
-                  const round     = pickToRound(pick.pickNumber)
-                  const avRate    = getAVRate(pick.player.position, pick.pickNumber)
-                  const grading   = pred && avRate !== null ? gradeRate(pred.predRate, avRate) : null
-                  const pctile    = pred && avRate !== null ? roundPercentile(pred.predRate, avRate) : null
-                  const medRate   = predEntry?.M?.predRate ?? null
-                  const stdDev    = predEntry?.stdDev ?? null
-                  const prob      = medRate !== null && stdDev !== null && avRate !== null
+                  const predEntry  = getPred(pick.player.fullName)
+                  const pred       = predEntry?.[activeSplit]
+                  const round      = pickToRound(pick.pickNumber)
+                  const adpEntry   = adpMap?.get(pick.player.appearance)
+                  const adp        = adpEntry?.adp
+                  // Grades and percentile benchmark off ADP when available, else actual pick
+                  const benchPick  = adp ?? pick.pickNumber
+                  const avRate     = getAVRate(pick.player.position, benchPick)
+                  const grading    = pred && avRate !== null ? gradeRate(pred.predRate, avRate) : null
+                  const pctile     = pred && avRate !== null ? roundPercentile(pred.predRate, avRate) : null
+                  const medRate    = predEntry?.M?.predRate ?? null
+                  const stdDev     = predEntry?.stdDev ?? null
+                  const prob       = medRate !== null && stdDev !== null && avRate !== null
                     ? exceedProb(medRate, stdDev, avRate) : null
-                  const isStacked = stackedTeams.has(pick.player.nflTeam)
-                  const pc        = POS_COLORS[pick.player.position]
-                  const rowBg     = isStacked ? 'var(--navy-700)' : i % 2 === 0 ? 'var(--navy-900)' : 'var(--navy-950)'
+                  // Positive adpValue = player fell to you (good); negative = you reached
+                  const adpValue   = adp !== undefined ? pick.pickNumber - adp : null
+                  const isStacked  = stackedTeams.has(pick.player.nflTeam)
+                  const pc         = POS_COLORS[pick.player.position]
+                  const rowBg      = isStacked ? 'var(--navy-700)' : i % 2 === 0 ? 'var(--navy-900)' : 'var(--navy-950)'
 
                   return (
                     <tr key={pick.player.appearance + pick.pickNumber}
@@ -411,14 +419,35 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: P
                       <td style={{ padding: '6px 10px', textAlign: 'center', color: '#475569' }}>{pick.player.nflTeam || '—'}</td>
                       <td style={{ padding: '6px 10px', textAlign: 'center', color: '#334155', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>{round}</td>
 
-                      {/* Rate + benchmark */}
+                      {/* Current ADP */}
+                      <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {adp !== undefined
+                          ? <span style={{ color: '#64748b', fontSize: 10 }}>{adp.toFixed(1)}</span>
+                          : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
+                      </td>
+
+                      {/* ±ADP value (positive = fell to you = good) */}
+                      <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>
+                        {adpValue !== null ? (() => {
+                          const color = adpValue >= 10 ? '#10b981' : adpValue >= 3 ? '#84cc16' : adpValue >= -3 ? '#94a3b8' : adpValue >= -10 ? '#f59e0b' : '#ef4444'
+                          return (
+                            <span style={{ color, fontWeight: 700, fontSize: 10 }}>
+                              {adpValue >= 0 ? '+' : ''}{adpValue.toFixed(1)}
+                            </span>
+                          )
+                        })() : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
+                      </td>
+
+                      {/* Rate + benchmark (benchmark anchored to ADP round) */}
                       <td style={{ padding: '6px 10px', textAlign: 'right' }}>
                         {pred
                           ? <span style={{ color: sc, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{pred.predRate.toFixed(1)}</span>
                           : <span style={{ color: '#1e293b' }}>—</span>}
                       </td>
-                      <td style={{ padding: '6px 10px', textAlign: 'right', color: '#334155', fontVariantNumeric: 'tabular-nums', fontSize: 10 }}>
-                        {avRate !== null ? avRate.toFixed(2) : '—'}
+                      <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: 10 }}>
+                        {avRate !== null
+                          ? <span style={{ color: adp !== undefined ? '#64748b' : '#334155' }}>{avRate.toFixed(2)}{adp !== undefined ? '*' : ''}</span>
+                          : <span style={{ color: '#1e293b' }}>—</span>}
                       </td>
 
                       {/* Grade */}
@@ -468,11 +497,11 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore }: P
 
         {/* Legend */}
         <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 10, color: '#334155' }}>
-          <span>Grade vs round avg Rate:</span>
+          <span>±ADP: pick# − ADP (+ = fell to you)  ·  BENCH* = benchmark at ADP round  ·  Grade vs BENCH:</span>
           {Object.entries(GRADE_COLORS).map(([g, c]) => (
             <span key={g} style={{ color: c }}>{g}</span>
           ))}
-          <span style={{ marginLeft: 8 }}>P(↑) = P(Rate ≥ round avg) · μ=Median · σ=(C−F)/1.349 · n=17</span>
+          <span style={{ marginLeft: 8 }}>P(↑) = P(Rate ≥ BENCH) · μ=Median · σ=(C−F)/1.349</span>
         </div>
       </div>
     </div>
