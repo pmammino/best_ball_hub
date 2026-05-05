@@ -53,11 +53,12 @@ const PRED_MAX_MULT: Record<string, number> = {
 }
 
 // Fallback divisors for players without 2026 data (predRate ≈ totalPts / divisor)
+// Calibrated from median implied divisors across 9,271 historical player-seasons.
 const FALLBACK_RATE_DIVISOR: Record<string, number> = {
-  QB: 44,
-  RB: 20,
-  WR: 19,
-  TE: 22,
+  QB: 52,
+  RB: 27,
+  WR: 25,
+  TE: 28,
 }
 
 function computeRate(

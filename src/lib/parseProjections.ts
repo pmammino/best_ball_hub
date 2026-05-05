@@ -3,12 +3,13 @@ import type { PlayerPrediction, SplitPrediction } from '@/hooks/usePredictions'
 
 // ── Shared scoring constants ──────────────────────────────────────────────────
 
-/** predRate ≈ (games × predAVG) / divisor, calibrated to match historical data */
+/** predRate ≈ (games × predAVG) / divisor, calibrated from median implied divisors
+ *  across 9,271 historical player-seasons (season_stats.csv Rate column). */
 const RATE_DIVISOR: Record<string, number> = {
-  QB: 44,
-  RB: 20,
-  WR: 19,
-  TE: 22,
+  QB: 52,
+  RB: 27,
+  WR: 25,
+  TE: 28,
 }
 
 /** predMax = predAVG × multiplier (position-specific boom/bust factor) */
