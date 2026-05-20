@@ -357,7 +357,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                 <tr style={{ background: 'var(--navy-800)', borderBottom: '1px solid var(--border)' }}>
                   {(['#','PLAYER','POS','NFL','BYE','RD','ADP','±ADP','RATE','BENCH','GRADE','PCTILE','P(↑)','AVG','MAX'] as const).map((h, i) => (
                     <th key={i} style={{
-                      padding: '7px 10px',
+                      padding: '6px 6px',
                       textAlign: i >= 8 ? 'right' : (i === 3 || i === 4 || i === 5) ? 'center' : i === 6 || i === 7 ? 'right' : 'left',
                       fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
                       color: i >= 8 ? '#475569' : i === 6 ? '#64748b' : i === 7 ? '#64748b' : '#334155',
@@ -397,18 +397,18 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--navy-700)')}
                       onMouseLeave={e => (e.currentTarget.style.background = rowBg)}
                     >
-                      <td style={{ padding: '6px 10px', color: '#334155', fontVariantNumeric: 'tabular-nums' }}>{pick.pickNumber}</td>
-                      <td style={{ padding: '6px 10px', color: '#e2e8f0', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {pick.player.fullName}
-                        {isStacked && <span style={{ marginLeft: 5, fontSize: 9, color: '#4f46e5', fontWeight: 700, letterSpacing: '0.06em' }}>STACK</span>}
+                      <td style={{ padding: '5px 6px', color: '#334155', fontVariantNumeric: 'tabular-nums' }}>{pick.pickNumber}</td>
+                      <td style={{ padding: '5px 6px', color: '#e2e8f0', fontWeight: 600, whiteSpace: 'nowrap' }} title={pick.player.fullName}>
+                        {isStacked && <span style={{ marginRight: 4, color: '#4f46e5', fontWeight: 900 }}>•</span>}
+                        {pick.player.firstName.charAt(0)}. {pick.player.lastName}
                       </td>
-                      <td style={{ padding: '6px 10px' }}>
+                      <td style={{ padding: '5px 6px' }}>
                         <span style={{ background: pc.bg, color: pc.text, border: `1px solid ${pc.border}`, borderRadius: 3, fontSize: 9, fontWeight: 800, padding: '1px 5px', letterSpacing: '0.06em' }}>
                           {pick.player.position}
                         </span>
                       </td>
-                      <td style={{ padding: '6px 10px', textAlign: 'center', color: '#475569' }}>{pick.player.nflTeam || '—'}</td>
-                      <td style={{ padding: '6px 10px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'center', color: '#475569' }}>{pick.player.nflTeam || '—'}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
                         {(() => {
                           const bye = getByeWeek(pick.player.nflTeam)
                           if (bye === null) return <span style={{ color: '#1e293b' }}>—</span>
@@ -426,17 +426,17 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                           )
                         })()}
                       </td>
-                      <td style={{ padding: '6px 10px', textAlign: 'center', color: '#334155', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>{round}</td>
+                      <td style={{ padding: '5px 6px', textAlign: 'center', color: '#334155', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>{round}</td>
 
                       {/* Current ADP */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
                         {adp !== undefined
                           ? <span style={{ color: '#64748b', fontSize: 10 }}>{adp.toFixed(1)}</span>
                           : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
                       </td>
 
                       {/* ±ADP value (positive = fell to you = good) */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>
                         {adpValue !== null ? (() => {
                           const color = adpValue >= 10 ? '#10b981' : adpValue >= 3 ? '#84cc16' : adpValue >= -3 ? '#94a3b8' : adpValue >= -10 ? '#f59e0b' : '#ef4444'
                           return (
@@ -448,31 +448,27 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                       </td>
 
                       {/* Rate + benchmark (benchmark anchored to ADP round) */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right' }}>
                         {pred
                           ? <span style={{ color: sc, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{pred.predRate.toFixed(1)}</span>
                           : <span style={{ color: '#1e293b' }}>—</span>}
                       </td>
-                      <td style={{ padding: '6px 10px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: 10 }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontSize: 10 }}>
                         {avRate !== null
                           ? <span style={{ color: adp !== undefined ? '#64748b' : '#334155' }}>{avRate.toFixed(2)}{adp !== undefined ? '*' : ''}</span>
                           : <span style={{ color: '#1e293b' }}>—</span>}
                       </td>
 
                       {/* Grade */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right' }}>
-                        {grading ? (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-                            <GradeBadge grade={grading.grade} />
-                            <span style={{ fontSize: 9, color: '#334155', fontVariantNumeric: 'tabular-nums' }}>
-                              ({grading.delta >= 0 ? '+' : ''}{grading.delta.toFixed(1)})
-                            </span>
-                          </div>
-                        ) : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
+                      <td style={{ padding: '5px 6px', textAlign: 'right' }}
+                          title={grading ? `Δ ${grading.delta >= 0 ? '+' : ''}${grading.delta.toFixed(2)}` : undefined}>
+                        {grading
+                          ? <GradeBadge grade={grading.grade} />
+                          : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
                       </td>
 
                       {/* Percentile */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right' }}>
                         {pctile !== null ? (() => {
                           const color = pctile >= 75 ? '#10b981' : pctile >= 50 ? '#84cc16' : pctile >= 25 ? '#f59e0b' : '#ef4444'
                           return <span style={{ color, fontWeight: 700, fontSize: 10, fontVariantNumeric: 'tabular-nums' }}>{ordinal(pctile)}</span>
@@ -480,15 +476,15 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                       </td>
 
                       {/* P(↑) */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', borderRight: '1px solid var(--border)' }}>
                         {prob !== null ? <ProbBadge prob={prob} /> : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
                       </td>
 
                       {/* AVG + Max */}
-                      <td style={{ padding: '6px 10px', textAlign: 'right', color: pred ? sc : '#1e293b', fontWeight: pred ? 700 : 400, fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: pred ? sc : '#1e293b', fontWeight: pred ? 700 : 400, fontVariantNumeric: 'tabular-nums' }}>
                         {pred ? pred.predAVG.toFixed(1) : '—'}
                       </td>
-                      <td style={{ padding: '6px 10px', textAlign: 'right', color: pred ? sc : '#1e293b', opacity: pred ? 0.8 : 1, fontVariantNumeric: 'tabular-nums' }}>
+                      <td style={{ padding: '5px 6px', textAlign: 'right', color: pred ? sc : '#1e293b', opacity: pred ? 0.8 : 1, fontVariantNumeric: 'tabular-nums' }}>
                         {pred ? pred.predMax.toFixed(1) : '—'}
                       </td>
                     </tr>
@@ -501,7 +497,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
 
         {/* Legend */}
         <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: '6px 16px', fontSize: 10, color: '#334155' }}>
-          <span>±ADP: pick# − ADP (+ = fell to you)  ·  BENCH* = benchmark at ADP round  ·  Grade vs BENCH:</span>
+          <span>• = team stack  ·  ±ADP: pick# − ADP (+ = fell to you)  ·  BENCH* = benchmark at ADP round  ·  hover Grade for Δ  ·  Grade vs BENCH:</span>
           {Object.entries(GRADE_COLORS).map(([g, c]) => (
             <span key={g} style={{ color: c }}>{g}</span>
           ))}
