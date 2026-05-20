@@ -79,6 +79,20 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
   const w17map = useMemo(() => buildGameMap(17), [buildGameMap])
   const weekMaps: Record<number, Map<string, string>> = { 15: w15map, 16: w16map, 17: w17map }
 
+  // Group picks by their team's bye week (sorted by week)
+  const byeGroups = useMemo(() => {
+    const map = new Map<number, Pick[]>()
+    for (const pick of entry.picks) {
+      const bye = getByeWeek(pick.player.nflTeam)
+      if (bye === null) continue
+      if (!map.has(bye)) map.set(bye, [])
+      map.get(bye)!.push(pick)
+    }
+    return Array.from(map.entries())
+      .map(([week, picks]) => ({ week, picks }))
+      .sort((a, b) => a.week - b.week)
+  }, [entry.picks, getByeWeek])
+
   function togglePosFilter(pos: Position) {
     setPosFilter(prev => prev === pos ? null : pos)
   }
@@ -163,6 +177,10 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
           })()}
         </div>
       </div>
+
+      {/* Two-column main: data/percentages on left · stacks/byes on right */}
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
 
       {/* Positional cards */}
       <div>
@@ -317,6 +335,9 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
         </div>
       </div>
 
+      </div>  {/* /LEFT column */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
+
       {/* Team stacks (NFL team ownership) */}
       {stacks.length > 0 && (
         <div>
@@ -355,28 +376,6 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
       {schedLoaded && (
         <div>
           <div className="section-header mb-2">Playoff Game Stacks</div>
-
-          {/* Bye week summary strip */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
-            {entry.picks.map(pick => {
-              const bye = getByeWeek(pick.player.nflTeam)
-              if (bye === null) return null
-              const isPlayoff = bye >= 15
-              const pc = POS_COLORS[pick.player.position]
-              return (
-                <div key={pick.player.appearance} style={{
-                  display: 'flex', alignItems: 'center', gap: 3,
-                  background: isPlayoff ? '#450a0a' : 'var(--navy-800)',
-                  border: `1px solid ${isPlayoff ? '#7f1d1d' : 'var(--border)'}`,
-                  borderRadius: 4, padding: '2px 6px',
-                }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, color: pc.text }}>{pick.player.position}</span>
-                  <span style={{ fontSize: 10, color: isPlayoff ? '#fca5a5' : '#475569' }}>{pick.player.lastName}</span>
-                  <span style={{ fontSize: 9, color: isPlayoff ? '#ef4444' : '#334155', fontWeight: 700 }}>BYE{bye}</span>
-                </div>
-              )
-            })}
-          </div>
 
           {/* One section per playoff week, only games with players from both teams */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -455,6 +454,63 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
           </div>
         </div>
       )}
+
+      {/* Bye Weeks — grouped by week */}
+      {schedLoaded && byeGroups.length > 0 && (
+        <div>
+          <div className="section-header mb-2">Bye Weeks</div>
+          <div style={{ background: 'var(--navy-900)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {byeGroups.map(({ week, picks }, idx) => {
+              const isPlayoff = week >= 15
+              return (
+                <div key={week} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '8px 10px',
+                  borderTop: idx === 0 ? 'none' : '1px solid var(--navy-800)',
+                  background: isPlayoff ? 'rgba(127,29,29,0.18)' : undefined,
+                }}>
+                  <div style={{
+                    minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    paddingTop: 1,
+                  }}>
+                    <span style={{
+                      fontSize: 14, fontWeight: 900,
+                      color: isPlayoff ? '#ef4444' : '#94a3b8',
+                      fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+                    }}>
+                      W{week}
+                    </span>
+                    {isPlayoff && (
+                      <span style={{ fontSize: 8, fontWeight: 800, color: '#ef4444', letterSpacing: '0.08em', marginTop: 2 }}>
+                        PLAYOFF
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flex: 1, minWidth: 0 }}>
+                    {picks.map(pick => {
+                      const pc = POS_COLORS[pick.player.position]
+                      return (
+                        <div key={pick.player.appearance} style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          background: 'var(--navy-800)', border: '1px solid var(--border)',
+                          borderRadius: 4, padding: '2px 6px',
+                        }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.04em' }}>{pick.player.position}</span>
+                          <span style={{ fontSize: 11, color: '#cbd5e1' }}>{pick.player.lastName}</span>
+                          <span style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{pick.player.nflTeam}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      </div>  {/* /RIGHT column */}
+      </div>  {/* /two-column grid */}
 
       {/* Roster table */}
       <div>
