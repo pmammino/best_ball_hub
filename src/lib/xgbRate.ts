@@ -57,16 +57,25 @@ export function xgbPredict(model: XGBModel, featVals: Record<string, number>): n
 }
 
 /** Load all four positional models in parallel. */
-export async function loadXGBModels(): Promise<Map<string, XGBModel>> {
-  const positions = ['QB', 'RB', 'WR', 'TE'] as const
-  const results = await Promise.all(
-    positions.map(pos =>
-      fetch(`/models/xgb_rate_${pos}.json`).then(r => r.json() as Promise<XGBModel>)
-    )
-  )
-  const map = new Map<string, XGBModel>()
-  positions.forEach((pos, i) => map.set(pos, results[i]))
-  return map
+// Module-level singleton — fetched and parsed at most once per page session.
+// Both usePredictions and use2025Predictions share the same promise, so the
+// four JSON files are only fetched/parsed once even when both hooks mount.
+let _modelPromise: Promise<Map<string, XGBModel>> | null = null
+
+export function loadXGBModels(): Promise<Map<string, XGBModel>> {
+  if (!_modelPromise) {
+    const positions = ['QB', 'RB', 'WR', 'TE'] as const
+    _modelPromise = Promise.all(
+      positions.map(pos =>
+        fetch(`/models/xgb_rate_${pos}.json`).then(r => r.json() as Promise<XGBModel>)
+      )
+    ).then(results => {
+      const map = new Map<string, XGBModel>()
+      positions.forEach((pos, i) => map.set(pos, results[i]))
+      return map
+    })
+  }
+  return _modelPromise
 }
 
 /**
