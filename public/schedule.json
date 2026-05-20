@@ -11,33 +11,33 @@
     "playoffs": {
       "15": [
         {"home":"LAC","away":"SF"},   {"home":"PHI","away":"SEA"},
-        {"home":"MIA","away":"GB"},   {"home":"DAL","away":"LAR"},
-        {"home":"MIN","away":"CHI"},  {"home":"BAL","away":"PIT"},
+        {"home":"GB", "away":"MIA"},  {"home":"LAR","away":"DAL"},
+        {"home":"MIN","away":"DET"},  {"home":"PIT","away":"BAL"},
         {"home":"NYG","away":"CLE"},  {"home":"WAS","away":"ATL"},
         {"home":"TEN","away":"IND"},  {"home":"TB", "away":"NO"},
         {"home":"ARI","away":"NYJ"},  {"home":"LV", "away":"DEN"},
         {"home":"KC", "away":"NE"},   {"home":"HOU","away":"JAX"},
-        {"home":"CAR","away":"CIN"},  {"home":"DET","away":"BUF"}
+        {"home":"CAR","away":"CIN"},  {"home":"BUF","away":"CHI"}
       ],
       "16": [
         {"home":"PHI","away":"HOU"},  {"home":"CHI","away":"GB"},
         {"home":"DEN","away":"BUF"},  {"home":"SEA","away":"LAR"},
         {"home":"ATL","away":"TB"},   {"home":"IND","away":"CIN"},
         {"home":"MIN","away":"WAS"},  {"home":"PIT","away":"CAR"},
-        {"home":"SF", "away":"KC"},   {"home":"DAL","away":"JAX"},
+        {"home":"KC", "away":"SF"},   {"home":"DAL","away":"JAX"},
         {"home":"MIA","away":"LAC"},  {"home":"NYJ","away":"NE"},
-        {"home":"BAL","away":"CLE"},  {"home":"LV", "away":"ARI"},
-        {"home":"NO", "away":"TEN"},  {"home":"NYG","away":"DET"}
+        {"home":"BAL","away":"CLE"},  {"home":"LV", "away":"TEN"},
+        {"home":"NO", "away":"ARI"},  {"home":"DET","away":"NYG"}
       ],
       "17": [
         {"home":"CIN","away":"BAL"},  {"home":"LAC","away":"KC"},
-        {"home":"NE", "away":"DEN"},  {"home":"GB", "away":"HOU"},
-        {"home":"NYJ","away":"BUF"},  {"home":"PIT","away":"CLE"},
-        {"home":"JAX","away":"IND"},  {"home":"TEN","away":"LV"},
-        {"home":"WAS","away":"PHI"},  {"home":"MIN","away":"CHI"},
-        {"home":"NO", "away":"ATL"},  {"home":"SF", "away":"LAR"},
-        {"home":"SEA","away":"ARI"},  {"home":"MIA","away":"DAL"},
-        {"home":"NYG","away":"CAR"},  {"home":"DET","away":"TB"}
+        {"home":"DEN","away":"NE"},   {"home":"GB", "away":"HOU"},
+        {"home":"NYJ","away":"MIN"},  {"home":"TEN","away":"PIT"},
+        {"home":"CLE","away":"IND"},  {"home":"ARI","away":"LV"},
+        {"home":"JAX","away":"WAS"},  {"home":"CHI","away":"DET"},
+        {"home":"ATL","away":"NO"},   {"home":"SF", "away":"PHI"},
+        {"home":"CAR","away":"SEA"},  {"home":"MIA","away":"BUF"},
+        {"home":"NYG","away":"DAL"},  {"home":"TB", "away":"LAR"}
       ]
     }
   }
