@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useSchedule, PlayoffWeek } from '@/hooks/useSchedule'
 import { DraftEntry, Pick, Position } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS, roundPercentile } from '@/lib/roundBenchmarks'
@@ -71,6 +72,13 @@ function GradeBadge({ grade }: { grade: string }) {
 
 export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adpMap }: Props) {
   const [posFilter, setPosFilter] = useState<Position | null>(null)
+  const { loaded: schedLoaded, getByeWeek, buildGameMap, getPlayoffInfo } = useSchedule()
+  const [playoffWeek, setPlayoffWeek] = useState<PlayoffWeek>(15)
+
+  const w15map = useMemo(() => buildGameMap(15), [buildGameMap])
+  const w16map = useMemo(() => buildGameMap(16), [buildGameMap])
+  const w17map = useMemo(() => buildGameMap(17), [buildGameMap])
+  const activeGameMap = playoffWeek === 15 ? w15map : playoffWeek === 16 ? w16map : w17map
 
   function togglePosFilter(pos: Position) {
     setPosFilter(prev => prev === pos ? null : pos)
@@ -112,9 +120,9 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
 
   const THRESHOLD = 160
   const sim = useMemo(
-    () => simulateBestBall(entry.picks, getPred, THRESHOLD),
+    () => simulateBestBall(entry.picks, getPred, THRESHOLD, 50_000, w15map),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entry.picks, getPred],
+    [entry.picks, getPred, w15map],
   )
 
   const probPct    = Math.round(sim.probability * 100)
@@ -305,12 +313,12 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
           </div>
 
           <p style={{ fontSize: 10, color: '#1e293b', marginTop: 0 }}>
-            50k sims · best ball (1QB+2RB+3WR+1TE+1FLEX) · μ=M.AVG · σ=avg(MAX−AVG) across C/M/F · threshold {THRESHOLD} pts
+            50k sims · best ball (1QB+2RB+3WR+1TE+1FLEX) · W15 game correlation (σ_game=3) · threshold {THRESHOLD} pts
           </p>
         </div>
       </div>
 
-      {/* Stacks */}
+      {/* Team stacks (NFL team ownership) */}
       {stacks.length > 0 && (
         <div>
           <div className="section-header mb-2">Team Stacks</div>
@@ -341,6 +349,116 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Playoff Game Stacks */}
+      {schedLoaded && (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div className="section-header">Playoff Game Stacks</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {([15, 16, 17] as PlayoffWeek[]).map(w => (
+                <button key={w}
+                  onClick={() => setPlayoffWeek(w)}
+                  style={{
+                    padding: '3px 10px', borderRadius: 12, fontSize: 11, fontWeight: 700,
+                    background: playoffWeek === w ? '#7c3aed' : 'var(--navy-800)',
+                    color: playoffWeek === w ? '#fff' : '#475569',
+                    border: `1px solid ${playoffWeek === w ? '#7c3aed' : 'var(--border)'}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  W{w}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bye week summary strip */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+            {entry.picks.map(pick => {
+              const bye = getByeWeek(pick.player.nflTeam)
+              if (bye === null) return null
+              const isPlayoff = bye >= 15
+              const pc = POS_COLORS[pick.player.position]
+              return (
+                <div key={pick.player.appearance} style={{
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  background: isPlayoff ? '#450a0a' : 'var(--navy-800)',
+                  border: `1px solid ${isPlayoff ? '#7f1d1d' : 'var(--border)'}`,
+                  borderRadius: 4, padding: '2px 6px',
+                }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: pc.text }}>{pick.player.position}</span>
+                  <span style={{ fontSize: 10, color: isPlayoff ? '#fca5a5' : '#475569' }}>{pick.player.lastName}</span>
+                  <span style={{ fontSize: 9, color: isPlayoff ? '#ef4444' : '#334155', fontWeight: 700 }}>BYE{bye}</span>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Game groupings for selected week */}
+          {(() => {
+            const gmap = activeGameMap
+            // Group picks by game key
+            const byGame = new Map<string, { picks: typeof entry.picks; teams: string[] }>()
+            for (const pick of entry.picks) {
+              const key = gmap.get(pick.player.nflTeam)
+              if (!key) continue
+              if (!byGame.has(key)) {
+                // Parse teams from key "W:T1:T2"
+                const [, t1, t2] = key.split(':')
+                byGame.set(key, { picks: [], teams: [t1, t2] })
+              }
+              byGame.get(key)!.picks.push(pick)
+            }
+
+            const gamGroups = Array.from(byGame.entries())
+              .sort(([, a], [, b]) => b.picks.length - a.picks.length)
+
+            if (gamGroups.length === 0) {
+              return (
+                <div style={{ textAlign: 'center', padding: '12px 0', fontSize: 11, color: '#334155' }}>
+                  No game stacks in Week {playoffWeek}
+                </div>
+              )
+            }
+
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {gamGroups.map(([key, { picks: gPicks, teams }], si) => {
+                  const pal = STACK_PALETTE[si % STACK_PALETTE.length]
+                  const team1 = teams[0], team2 = teams[1]
+                  return (
+                    <div key={key} style={{ background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 6, padding: '8px 10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontWeight: 800, color: pal.accent, fontSize: 12, letterSpacing: '0.03em' }}>
+                          {team1} <span style={{ color: '#334155', fontWeight: 400 }}>vs</span> {team2}
+                        </span>
+                        <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>
+                          {gPicks.length} player{gPicks.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {gPicks.map(pick => {
+                          const pred = getPred(pick.player.fullName)?.[activeSplit]
+                          const pc = POS_COLORS[pick.player.position]
+                          return (
+                            <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 8px' }}>
+                              <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.06em' }}>{pick.player.position}</span>
+                              <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{pick.player.fullName}</span>
+                              <span style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{pick.player.nflTeam}</span>
+                              {pred && <span style={{ fontSize: 10, color: sc, fontWeight: 700 }}>{pred.predAVG.toFixed(1)}</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       )}
 

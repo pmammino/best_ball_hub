@@ -3,7 +3,7 @@ import type { PlayerPrediction } from '@/hooks/usePredictions'
 
 export interface SimResult {
   probability: number    // P(single-week lineup ≥ threshold)
-  expectedScore: number  // mean weekly lineup score
+  expectedScore: number
   medianScore: number
   p10: number
   p25: number
@@ -19,54 +19,83 @@ function randn(): number {
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
 }
 
+/**
+ * Monte Carlo best-ball ceiling simulation.
+ *
+ * @param gameMap  Optional map of nflTeam → gameKey. When provided, players in the
+ *   same game share a correlated pace factor (σ_game = 3 pts), modelling the
+ *   tendency for high-scoring games to lift all fantasy players in that game.
+ *   Intra-game correlation ≈ 20% at typical player-σ of ~7 pts.
+ */
 export function simulateBestBall(
   picks: Pick[],
   getPred: (name: string) => PlayerPrediction | undefined,
   threshold = 160,
   sims = 50_000,
+  gameMap?: Map<string, string>,
 ): SimResult {
-  // Build per-player params:
-  //   mean  = M.predAVG (median projection)
-  //   sigma = average of (predMax − predAVG) across all available splits (C/M/F)
-  type PlayerParam = { pos: string; mean: number; sigma: number }
+  const GAME_SIGMA = 3.0  // shared game-pace noise (pts)
+
+  type PlayerParam = { pos: string; mean: number; sigma: number; gameIdx: number }
+
+  // Build unique game keys and a fast index for each player
+  const teamToKey = gameMap ?? new Map<string, string>()
+  const uniqueKeys: string[] = []
+  const keyIndex = new Map<string, number>()
+  for (const pick of picks) {
+    const key = teamToKey.get(pick.player.nflTeam)
+    if (key && !keyIndex.has(key)) {
+      keyIndex.set(key, uniqueKeys.length)
+      uniqueKeys.push(key)
+    }
+  }
+
   const players: PlayerParam[] = picks.map(pick => {
-    const pred   = getPred(pick.player.fullName)
-    const mean   = pred?.M?.predAVG ?? 0
+    const pred = getPred(pick.player.fullName)
+    const mean = pred?.M?.predAVG ?? 0
     const splits = [pred?.C, pred?.M, pred?.F].filter((s): s is NonNullable<typeof s> => !!s)
-    const diffs  = splits.map(s => s.predMax - s.predAVG)
-    const sigma  = diffs.length > 0
+    const diffs = splits.map(s => s.predMax - s.predAVG)
+    const sigma = diffs.length > 0
       ? Math.max(diffs.reduce((a, b) => a + b, 0) / diffs.length, 0.01)
       : Math.max(mean * 0.5, 0.01)
-    return { pos: pick.player.position, mean, sigma }
+    const key = teamToKey.get(pick.player.nflTeam)
+    const gameIdx = key !== undefined ? (keyIndex.get(key) ?? -1) : -1
+    return { pos: pick.player.position, mean, sigma, gameIdx }
   })
 
-  const qbs = players.filter(p => p.pos === 'QB')
-  const rbs = players.filter(p => p.pos === 'RB')
-  const wrs = players.filter(p => p.pos === 'WR')
-  const tes = players.filter(p => p.pos === 'TE')
+  // Pre-group by position index (faster inner loop)
+  const qbIdx: number[] = [], rbIdx: number[] = [], wrIdx: number[] = [], teIdx: number[] = []
+  players.forEach((p, i) => {
+    if (p.pos === 'QB') qbIdx.push(i)
+    else if (p.pos === 'RB') rbIdx.push(i)
+    else if (p.pos === 'WR') wrIdx.push(i)
+    else if (p.pos === 'TE') teIdx.push(i)
+  })
 
   const scores = new Float32Array(sims)
+  const gf = new Float64Array(uniqueKeys.length)
+  const pScores = new Float64Array(players.length)
 
   for (let s = 0; s < sims; s++) {
-    const qbS = qbs.map(p => Math.max(0, p.mean + p.sigma * randn()))
-    const rbS = rbs.map(p => Math.max(0, p.mean + p.sigma * randn()))
-    const wrS = wrs.map(p => Math.max(0, p.mean + p.sigma * randn()))
-    const teS = tes.map(p => Math.max(0, p.mean + p.sigma * randn()))
+    for (let g = 0; g < uniqueKeys.length; g++) gf[g] = GAME_SIGMA * randn()
 
-    qbS.sort((a, b) => b - a)
-    rbS.sort((a, b) => b - a)
-    wrS.sort((a, b) => b - a)
-    teS.sort((a, b) => b - a)
+    for (let i = 0; i < players.length; i++) {
+      const p = players[i]
+      const gameFactor = p.gameIdx >= 0 ? gf[p.gameIdx] : 0
+      pScores[i] = Math.max(0, p.mean + p.sigma * randn() + gameFactor)
+    }
 
-    // Best lineup: 1 QB + 2 RB + 3 WR + 1 TE + 1 FLEX (best remaining RB/WR/TE)
-    let score = 0
-    score += qbS[0] ?? 0
-    score += (rbS[0] ?? 0) + (rbS[1] ?? 0)
-    score += (wrS[0] ?? 0) + (wrS[1] ?? 0) + (wrS[2] ?? 0)
-    score += teS[0] ?? 0
-    score += Math.max(rbS[2] ?? 0, wrS[3] ?? 0, teS[1] ?? 0)
+    const qbS = qbIdx.map(i => pScores[i]).sort((a, b) => b - a)
+    const rbS = rbIdx.map(i => pScores[i]).sort((a, b) => b - a)
+    const wrS = wrIdx.map(i => pScores[i]).sort((a, b) => b - a)
+    const teS = teIdx.map(i => pScores[i]).sort((a, b) => b - a)
 
-    scores[s] = score
+    scores[s] =
+      (qbS[0] ?? 0) +
+      (rbS[0] ?? 0) + (rbS[1] ?? 0) +
+      (wrS[0] ?? 0) + (wrS[1] ?? 0) + (wrS[2] ?? 0) +
+      (teS[0] ?? 0) +
+      Math.max(rbS[2] ?? 0, wrS[3] ?? 0, teS[1] ?? 0)
   }
 
   scores.sort()
