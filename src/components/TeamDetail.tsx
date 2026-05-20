@@ -178,8 +178,8 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
         </div>
       </div>
 
-      {/* Two-column main: data/percentages on left · stacks/byes on right */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+      {/* Two-column main: data/percentages + team stacks on left · game stacks/byes on right */}
+      <div style={{ display: 'grid', gridTemplateColumns: '3fr 1.4fr', gap: 20, alignItems: 'start' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
 
       {/* Positional cards */}
@@ -335,9 +335,6 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
         </div>
       </div>
 
-      </div>  {/* /LEFT column */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
-
       {/* Team stacks (NFL team ownership) */}
       {stacks.length > 0 && (
         <div>
@@ -371,6 +368,9 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
           </div>
         </div>
       )}
+
+      </div>  {/* /LEFT column */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
 
       {/* Playoff Game Stacks */}
       {schedLoaded && (
