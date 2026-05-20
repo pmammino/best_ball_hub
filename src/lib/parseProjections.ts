@@ -1,10 +1,8 @@
 import Papa from 'papaparse'
 import type { PlayerPrediction, SplitPrediction } from '@/hooks/usePredictions'
+import { type XGBModel, xgbPredict, buildRateFeatures } from './xgbRate'
 
-// ── Shared scoring constants ──────────────────────────────────────────────────
-
-/** predRate ≈ (games × predAVG) / divisor, calibrated from median implied divisors
- *  across 9,271 historical player-seasons (season_stats.csv Rate column). */
+// ── Fallback divisors (used when XGB models are not loaded) ────────────────────
 const RATE_DIVISOR: Record<string, number> = {
   QB: 52,
   RB: 27,
@@ -44,20 +42,48 @@ export function computeFantasyPts(row: Record<string, string>): number {
   )
 }
 
+interface RawStats {
+  passAtt: number; passComp: number; passYards: number; passTD: number; passInt: number
+  rushAtt: number; rushYards: number; rushTD: number
+  targets: number; receptions: number; recYards: number; recTD: number
+  fumblesLost: number
+}
+
+function extractStats(row: Record<string, string>): RawStats {
+  return {
+    passAtt:     pf(row.PassAtt),
+    passComp:    pf(row.PassComp),
+    passYards:   pf(row.PassYard),
+    passTD:      pf(row.PassTD),
+    passInt:     pf(row.PassInt),
+    rushAtt:     pf(row.RushAtt),
+    rushYards:   pf(row.RushYard),
+    rushTD:      pf(row.RushTD),
+    targets:     pf(row.Targets),
+    receptions:  pf(row.Receptions),
+    recYards:    pf(row.RecYard),
+    recTD:       pf(row.RecTD),
+    fumblesLost: pf(row.FumblesLost),
+  }
+}
+
 function buildSplitPrediction(
   pts: number,
   games: number,
   position: string,
+  stats: RawStats,
+  models?: Map<string, XGBModel>,
 ): SplitPrediction {
   const predAVG = pts / games
-  const divisor = RATE_DIVISOR[position] ?? 22
   const mult = MAX_MULT[position] ?? 2.0
-  return {
-    games,
-    predRate: (games * predAVG) / divisor,
-    predAVG,
-    predMax: predAVG * mult,
+  let predRate: number
+  const model = models?.get(position)
+  if (model) {
+    predRate = xgbPredict(model, buildRateFeatures(games, predAVG, stats))
+  } else {
+    predRate = (games * predAVG) / (RATE_DIVISOR[position] ?? 22)
   }
+  return { games, predRate, predAVG, predMax: predAVG * mult }
 }
 
 // ── New-format projections.csv parser ─────────────────────────────────────────
@@ -76,18 +102,31 @@ interface NewFormatRow {
   [key: string]: string
 }
 
+type SplitData = {
+  pts: number
+  games: number
+  stats: RawStats
+  team: string
+  pos: string
+  first: string
+  last: string
+}
+
 /**
- * Parses the named-format projections CSV (projections.csv with firstname/lastname columns).
- * Returns a map keyed by fullName.toLowerCase().
+ * Parses the named-format projections CSV.
+ * Pass `models` (from loadXGBModels()) to use XGBoost Rate predictions;
+ * omit to fall back to the divisor formula.
  */
-export function parseNamedProjections(csvText: string): Map<string, PlayerPrediction> {
+export function parseNamedProjections(
+  csvText: string,
+  models?: Map<string, XGBModel>,
+): Map<string, PlayerPrediction> {
   const parsed = Papa.parse<NewFormatRow>(csvText, {
     header: true,
     skipEmptyLines: true,
     transformHeader: (h: string) => h.trim(),
   })
 
-  type SplitData = { pts: number; games: number; team: string; pos: string; first: string; last: string }
   const byId = new Map<string, Record<string, SplitData>>()
 
   for (const row of parsed.data) {
@@ -98,40 +137,35 @@ export function parseNamedProjections(csvText: string): Map<string, PlayerPredic
 
     if (!byId.has(nflId)) byId.set(nflId, {})
     byId.get(nflId)![row.Split] = {
-      pts: computeFantasyPts(row),
+      pts:   computeFantasyPts(row),
       games,
-      team: row.team?.trim() ?? '',
-      pos: row.position?.trim() ?? '',
+      stats: extractStats(row),
+      team:  row.team?.trim() ?? '',
+      pos:   row.position?.trim() ?? '',
       first: row.firstname?.trim() ?? '',
-      last: row.lastname?.trim() ?? '',
+      last:  row.lastname?.trim() ?? '',
     }
   }
 
   const predByName = new Map<string, PlayerPrediction>()
 
-  for (const entry of Array.from<[string, Record<string, SplitData>]>(
-    byId as Map<string, Record<string, SplitData>>
-  )) {
-    const nflId = entry[0]
-    const splits = entry[1]
-
+  for (const [nflId, splits] of Array.from(byId)) {
     const ref = splits['M'] ?? splits['C'] ?? splits['F']
     if (!ref) continue
 
-    const pos = ref.pos
+    const pos      = ref.pos
     const fullName = `${ref.first} ${ref.last}`.trim()
     if (!fullName) continue
 
     const buildSplit = (key: string): SplitPrediction | null => {
       const s = splits[key]
       if (!s) return null
-      return buildSplitPrediction(s.pts, s.games, pos)
+      return buildSplitPrediction(s.pts, s.games, pos, s.stats, models)
     }
 
     const C = buildSplit('C')
     const M = buildSplit('M')
     const F = buildSplit('F')
-
     if (!M) continue
 
     const stdDev =
@@ -140,10 +174,10 @@ export function parseNamedProjections(csvText: string): Map<string, PlayerPredic
     predByName.set(fullName.toLowerCase(), {
       NFLNewsID: parseInt(nflId),
       firstName: ref.first,
-      lastName: ref.last,
+      lastName:  ref.last,
       fullName,
-      position: pos,
-      team: ref.team === 'NULL' ? '' : ref.team,
+      position:  pos,
+      team:      ref.team === 'NULL' ? '' : ref.team,
       stdDev,
       C,
       M,
@@ -155,16 +189,18 @@ export function parseNamedProjections(csvText: string): Map<string, PlayerPredic
 }
 
 // ── Legacy-format (2025_projections.csv) parser ───────────────────────────────
-// No name columns; needs an external NFLNewsID → PlayerPrediction map for names.
+
+type LegacySplitData = { pts: number; games: number; stats: RawStats }
 
 /**
- * Parses the legacy projections CSV (underdogid format, no player names).
- * Names/positions come from pred26ByNFLId (indexed from the named projections).
- * predRate is scaled from the 2026 baseline by the ratio of projected season totals.
+ * Parses the legacy projections CSV (no player name columns).
+ * Names/positions come from pred26ByNFLId.
+ * Pass `models` to use XGBoost Rate predictions; omit to fall back to divisor.
  */
 export function parseLegacyProjections(
   csvText: string,
   pred26ByNFLId: Map<string, PlayerPrediction>,
+  models?: Map<string, XGBModel>,
 ): Map<string, PlayerPrediction> {
   const parsed = Papa.parse<Record<string, string>>(csvText, {
     header: true,
@@ -172,8 +208,7 @@ export function parseLegacyProjections(
     transformHeader: (h: string) => h.trim(),
   })
 
-  type SplitData = { pts: number; games: number }
-  const byId = new Map<string, Record<string, SplitData>>()
+  const byId = new Map<string, Record<string, LegacySplitData>>()
 
   for (const row of parsed.data) {
     const nflId = row.NFLNewsID?.trim()
@@ -181,42 +216,46 @@ export function parseLegacyProjections(
     const games = pf(row.GamesPlayed)
     if (games <= 0) continue
     if (!byId.has(nflId)) byId.set(nflId, {})
-    byId.get(nflId)![row.Split] = { pts: computeFantasyPts(row), games }
+    byId.get(nflId)![row.Split] = {
+      pts:   computeFantasyPts(row),
+      games,
+      stats: extractStats(row),
+    }
   }
 
   const predByName = new Map<string, PlayerPrediction>()
 
-  for (const entry of Array.from<[string, Record<string, SplitData>]>(
-    byId as Map<string, Record<string, SplitData>>
-  )) {
-    const nflId = entry[0]
-    const splits = entry[1]
+  for (const [nflId, splits] of Array.from(byId)) {
     const p26 = pred26ByNFLId.get(nflId)
     if (!p26) continue
 
-    const pos = p26.position
-    const divisor = RATE_DIVISOR[pos] ?? 22
+    const pos    = p26.position
+    const model  = models?.get(pos)
     const maxMult = MAX_MULT[pos] ?? 2.0
+    const divisor = RATE_DIVISOR[pos] ?? 22
 
-    const makeLegacySplit = (key: 'C' | 'M' | 'F'): SplitPrediction | null => {
+    const makeSplit = (key: 'C' | 'M' | 'F'): SplitPrediction | null => {
       const s = splits[key]
       if (!s) return null
       const predAVG = s.pts / s.games
-      const totalPts25 = s.pts
-      const split26 = p26[key]
       let predRate: number
-      if (split26 && split26.predRate > 0 && split26.predAVG > 0 && split26.games > 0) {
-        predRate = split26.predRate * (totalPts25 / (split26.predAVG * split26.games))
+      if (model) {
+        predRate = xgbPredict(model, buildRateFeatures(s.games, predAVG, s.stats))
       } else {
-        predRate = totalPts25 / divisor
+        // Scale 2026 Rate by ratio of projected season totals
+        const split26 = p26[key]
+        if (split26 && split26.predRate > 0 && split26.predAVG > 0 && split26.games > 0) {
+          predRate = split26.predRate * (s.pts / (split26.predAVG * split26.games))
+        } else {
+          predRate = s.pts / divisor
+        }
       }
       return { games: s.games, predRate, predAVG, predMax: predAVG * maxMult }
     }
 
-    const C = makeLegacySplit('C')
-    const M = makeLegacySplit('M')
-    const F = makeLegacySplit('F')
-
+    const C = makeSplit('C')
+    const M = makeSplit('M')
+    const F = makeSplit('F')
     if (!M) continue
 
     const stdDev =
@@ -225,10 +264,10 @@ export function parseLegacyProjections(
     predByName.set(p26.fullName.toLowerCase(), {
       NFLNewsID: parseInt(nflId),
       firstName: p26.firstName,
-      lastName: p26.lastName,
-      fullName: p26.fullName,
-      position: pos,
-      team: p26.team,
+      lastName:  p26.lastName,
+      fullName:  p26.fullName,
+      position:  pos,
+      team:      p26.team,
       stdDev,
       C,
       M,

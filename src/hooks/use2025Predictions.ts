@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { PlayerPrediction } from './usePredictions'
 import { parseLegacyProjections } from '@/lib/parseProjections'
+import { loadXGBModels, type XGBModel } from '@/lib/xgbRate'
 
 function stripSuffix(name: string): string {
   return name.replace(/\s+(jr\.?|sr\.?|ii|iii|iv|v)$/i, '').trim()
@@ -28,10 +29,12 @@ export function use2025Predictions(pred26: PlayerPrediction[]) {
       pred26ByNFLId.set(String(p.NFLNewsID), p)
     }
 
-    fetch('/projections-2025.csv')
-      .then((r) => r.text())
-      .then((text) => {
-        setPredByName(parseLegacyProjections(text, pred26ByNFLId))
+    Promise.all([
+      fetch('/projections-2025.csv').then(r => r.text()),
+      loadXGBModels().catch(() => null as Map<string, XGBModel> | null),
+    ])
+      .then(([text, models]) => {
+        setPredByName(parseLegacyProjections(text, pred26ByNFLId, models ?? undefined))
         setIsLoading(false)
       })
       .catch((err) => {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { parseNamedProjections } from '@/lib/parseProjections'
+import { loadXGBModels, type XGBModel } from '@/lib/xgbRate'
 
 export type PredSplit = 'C' | 'M' | 'F'
 
@@ -43,10 +44,12 @@ export function usePredictions() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/projections.csv')
-      .then((r) => r.text())
-      .then((text) => {
-        setPredByName(parseNamedProjections(text))
+    Promise.all([
+      fetch('/projections.csv').then(r => r.text()),
+      loadXGBModels().catch(() => null as Map<string, XGBModel> | null),
+    ])
+      .then(([text, models]) => {
+        setPredByName(parseNamedProjections(text, models ?? undefined))
         setIsLoading(false)
       })
       .catch((err) => {

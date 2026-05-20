@@ -72,7 +72,7 @@ function GradeBadge({ grade }: { grade: string }) {
 
 export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adpMap }: Props) {
   const [posFilter, setPosFilter] = useState<Position | null>(null)
-  const { loaded: schedLoaded, getByeWeek, buildGameMap, getPlayoffInfo } = useSchedule()
+  const { loaded: schedLoaded, getByeWeek, buildGameMap } = useSchedule()
   const [playoffWeek, setPlayoffWeek] = useState<PlayoffWeek>(15)
 
   const w15map = useMemo(() => buildGameMap(15), [buildGameMap])
@@ -601,11 +601,6 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                       {/* Percentile */}
                       <td style={{ padding: '6px 10px', textAlign: 'right' }}>
                         {pctile !== null ? (() => {
-                          const ordinal = (n: number) => {
-                            const s = ['th','st','nd','rd']
-                            const v = n % 100
-                            return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
-                          }
                           const color = pctile >= 75 ? '#10b981' : pctile >= 50 ? '#84cc16' : pctile >= 25 ? '#f59e0b' : '#ef4444'
                           return <span style={{ color, fontWeight: 700, fontSize: 10, fontVariantNumeric: 'tabular-nums' }}>{ordinal(pctile)}</span>
                         })() : <span style={{ color: '#1e293b', fontSize: 10 }}>—</span>}
