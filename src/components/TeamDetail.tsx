@@ -335,184 +335,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
         </div>
       </div>
 
-      {/* Team stacks (NFL team ownership) */}
-      {stacks.length > 0 && (
-        <div>
-          <div className="section-header mb-2">Team Stacks</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {stacks.map(([team, picks], si) => {
-              const pal = STACK_PALETTE[si % STACK_PALETTE.length]
-              return (
-                <div key={team} style={{ background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 6, padding: '8px 10px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontWeight: 800, color: pal.accent, fontSize: 12, letterSpacing: '0.04em' }}>{team}</span>
-                    <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>{picks.length}-STACK</span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {picks.map(pick => {
-                      const pred = getPred(pick.player.fullName)?.[activeSplit]
-                      const pc = POS_COLORS[pick.player.position]
-                      return (
-                        <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 7px' }}>
-                          <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.06em' }}>{pick.player.position}</span>
-                          <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{pick.player.fullName}</span>
-                          <span style={{ fontSize: 10, color: '#334155' }}>#{pick.pickNumber}</span>
-                          {pred && <span style={{ fontSize: 10, color: sc, fontWeight: 700 }}>{pred.predAVG.toFixed(1)}</span>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      </div>  {/* /LEFT column */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
-
-      {/* Playoff Game Stacks */}
-      {schedLoaded && (
-        <div>
-          <div className="section-header mb-2">Playoff Game Stacks</div>
-
-          {/* One section per playoff week, only games with players from both teams */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {([15, 16, 17] as PlayoffWeek[]).map(week => {
-              const gmap = weekMaps[week]
-
-              // Group picks by game key
-              const byGame = new Map<string, { picks: typeof entry.picks; teams: [string, string] }>()
-              for (const pick of entry.picks) {
-                const key = gmap.get(pick.player.nflTeam)
-                if (!key) continue
-                if (!byGame.has(key)) {
-                  const [, t1, t2] = key.split(':')
-                  byGame.set(key, { picks: [], teams: [t1, t2] })
-                }
-                byGame.get(key)!.picks.push(pick)
-              }
-
-              // Keep only games where picks exist from BOTH sides of the matchup
-              const trueStacks = Array.from(byGame.entries())
-                .filter(([, { picks: gPicks, teams }]) => {
-                  const present = new Set(gPicks.map(p => p.player.nflTeam))
-                  return present.has(teams[0]) && present.has(teams[1])
-                })
-                .sort(([, a], [, b]) => b.picks.length - a.picks.length)
-
-              return (
-                <div key={week}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
-                    Week {week}
-                  </div>
-                  {trueStacks.length === 0 ? (
-                    <div style={{ fontSize: 11, color: '#334155', padding: '6px 0' }}>
-                      No cross-game stacks in Week {week}
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {trueStacks.map(([key, { picks: gPicks, teams }], si) => {
-                        const pal = STACK_PALETTE[si % STACK_PALETTE.length]
-                        const [team1, team2] = teams
-                        // Split picks by team for display
-                        const t1Picks = gPicks.filter(p => p.player.nflTeam === team1)
-                        const t2Picks = gPicks.filter(p => p.player.nflTeam === team2)
-                        return (
-                          <div key={key} style={{ background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 6, padding: '8px 10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                              <span style={{ fontWeight: 800, color: pal.accent, fontSize: 12, letterSpacing: '0.03em' }}>
-                                {team1} <span style={{ color: '#334155', fontWeight: 400 }}>vs</span> {team2}
-                              </span>
-                              <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>
-                                {t1Picks.length}v{t2Picks.length}
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                              {gPicks.map(pick => {
-                                const pred = getPred(pick.player.fullName)?.[activeSplit]
-                                const pc = POS_COLORS[pick.player.position]
-                                return (
-                                  <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 8px' }}>
-                                    <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.06em' }}>{pick.player.position}</span>
-                                    <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{pick.player.fullName}</span>
-                                    <span style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{pick.player.nflTeam}</span>
-                                    {pred && <span style={{ fontSize: 10, color: sc, fontWeight: 700 }}>{pred.predAVG.toFixed(1)}</span>}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Bye Weeks — grouped by week */}
-      {schedLoaded && byeGroups.length > 0 && (
-        <div>
-          <div className="section-header mb-2">Bye Weeks</div>
-          <div style={{ background: 'var(--navy-900)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-            {byeGroups.map(({ week, picks }, idx) => {
-              const isPlayoff = week >= 15
-              return (
-                <div key={week} style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '8px 10px',
-                  borderTop: idx === 0 ? 'none' : '1px solid var(--navy-800)',
-                  background: isPlayoff ? 'rgba(127,29,29,0.18)' : undefined,
-                }}>
-                  <div style={{
-                    minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    paddingTop: 1,
-                  }}>
-                    <span style={{
-                      fontSize: 14, fontWeight: 900,
-                      color: isPlayoff ? '#ef4444' : '#94a3b8',
-                      fontVariantNumeric: 'tabular-nums', lineHeight: 1,
-                    }}>
-                      W{week}
-                    </span>
-                    {isPlayoff && (
-                      <span style={{ fontSize: 8, fontWeight: 800, color: '#ef4444', letterSpacing: '0.08em', marginTop: 2 }}>
-                        PLAYOFF
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flex: 1, minWidth: 0 }}>
-                    {picks.map(pick => {
-                      const pc = POS_COLORS[pick.player.position]
-                      return (
-                        <div key={pick.player.appearance} style={{
-                          display: 'flex', alignItems: 'center', gap: 4,
-                          background: 'var(--navy-800)', border: '1px solid var(--border)',
-                          borderRadius: 4, padding: '2px 6px',
-                        }}>
-                          <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.04em' }}>{pick.player.position}</span>
-                          <span style={{ fontSize: 11, color: '#cbd5e1' }}>{pick.player.lastName}</span>
-                          <span style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{pick.player.nflTeam}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      </div>  {/* /RIGHT column */}
-      </div>  {/* /two-column grid */}
-
-      {/* Roster table */}
+      {/* Roster table — moved into left column so the wider lane fits 15 columns */}
       <div>
         <div className="section-header mb-2" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           Full Roster
@@ -685,6 +508,183 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
           <span style={{ marginLeft: 8 }}>P(↑) = P(Rate ≥ BENCH) · μ=Median · σ=(C−F)/1.349</span>
         </div>
       </div>
+
+      </div>  {/* /LEFT column */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minWidth: 0 }}>
+
+      {/* Team stacks (NFL team ownership) */}
+      {stacks.length > 0 && (
+        <div>
+          <div className="section-header mb-2">Team Stacks</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {stacks.map(([team, picks], si) => {
+              const pal = STACK_PALETTE[si % STACK_PALETTE.length]
+              return (
+                <div key={team} style={{ background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 6, padding: '8px 10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontWeight: 800, color: pal.accent, fontSize: 12, letterSpacing: '0.04em' }}>{team}</span>
+                    <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>{picks.length}-STACK</span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {picks.map(pick => {
+                      const pred = getPred(pick.player.fullName)?.[activeSplit]
+                      const pc = POS_COLORS[pick.player.position]
+                      return (
+                        <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 7px' }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.06em' }}>{pick.player.position}</span>
+                          <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{pick.player.fullName}</span>
+                          <span style={{ fontSize: 10, color: '#334155' }}>#{pick.pickNumber}</span>
+                          {pred && <span style={{ fontSize: 10, color: sc, fontWeight: 700 }}>{pred.predAVG.toFixed(1)}</span>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Playoff Game Stacks */}
+      {schedLoaded && (
+        <div>
+          <div className="section-header mb-2">Playoff Game Stacks</div>
+
+          {/* One section per playoff week, only games with players from both teams */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {([15, 16, 17] as PlayoffWeek[]).map(week => {
+              const gmap = weekMaps[week]
+
+              // Group picks by game key
+              const byGame = new Map<string, { picks: typeof entry.picks; teams: [string, string] }>()
+              for (const pick of entry.picks) {
+                const key = gmap.get(pick.player.nflTeam)
+                if (!key) continue
+                if (!byGame.has(key)) {
+                  const [, t1, t2] = key.split(':')
+                  byGame.set(key, { picks: [], teams: [t1, t2] })
+                }
+                byGame.get(key)!.picks.push(pick)
+              }
+
+              // Keep only games where picks exist from BOTH sides of the matchup
+              const trueStacks = Array.from(byGame.entries())
+                .filter(([, { picks: gPicks, teams }]) => {
+                  const present = new Set(gPicks.map(p => p.player.nflTeam))
+                  return present.has(teams[0]) && present.has(teams[1])
+                })
+                .sort(([, a], [, b]) => b.picks.length - a.picks.length)
+
+              return (
+                <div key={week}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    Week {week}
+                  </div>
+                  {trueStacks.length === 0 ? (
+                    <div style={{ fontSize: 11, color: '#334155', padding: '6px 0' }}>
+                      No cross-game stacks in Week {week}
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {trueStacks.map(([key, { picks: gPicks, teams }], si) => {
+                        const pal = STACK_PALETTE[si % STACK_PALETTE.length]
+                        const [team1, team2] = teams
+                        // Split picks by team for display
+                        const t1Picks = gPicks.filter(p => p.player.nflTeam === team1)
+                        const t2Picks = gPicks.filter(p => p.player.nflTeam === team2)
+                        return (
+                          <div key={key} style={{ background: pal.bg, border: `1px solid ${pal.border}`, borderRadius: 6, padding: '8px 10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                              <span style={{ fontWeight: 800, color: pal.accent, fontSize: 12, letterSpacing: '0.03em' }}>
+                                {team1} <span style={{ color: '#334155', fontWeight: 400 }}>vs</span> {team2}
+                              </span>
+                              <span style={{ fontSize: 10, color: '#475569', fontWeight: 600 }}>
+                                {t1Picks.length}v{t2Picks.length}
+                              </span>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                              {gPicks.map(pick => {
+                                const pred = getPred(pick.player.fullName)?.[activeSplit]
+                                const pc = POS_COLORS[pick.player.position]
+                                return (
+                                  <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 8px' }}>
+                                    <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.06em' }}>{pick.player.position}</span>
+                                    <span style={{ fontSize: 11, color: '#cbd5e1', fontWeight: 500 }}>{pick.player.fullName}</span>
+                                    <span style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{pick.player.nflTeam}</span>
+                                    {pred && <span style={{ fontSize: 10, color: sc, fontWeight: 700 }}>{pred.predAVG.toFixed(1)}</span>}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Bye Weeks — grouped by week */}
+      {schedLoaded && byeGroups.length > 0 && (
+        <div>
+          <div className="section-header mb-2">Bye Weeks</div>
+          <div style={{ background: 'var(--navy-900)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+            {byeGroups.map(({ week, picks }, idx) => {
+              const isPlayoff = week >= 15
+              return (
+                <div key={week} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 10,
+                  padding: '8px 10px',
+                  borderTop: idx === 0 ? 'none' : '1px solid var(--navy-800)',
+                  background: isPlayoff ? 'rgba(127,29,29,0.18)' : undefined,
+                }}>
+                  <div style={{
+                    minWidth: 52, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    paddingTop: 1,
+                  }}>
+                    <span style={{
+                      fontSize: 14, fontWeight: 900,
+                      color: isPlayoff ? '#ef4444' : '#94a3b8',
+                      fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+                    }}>
+                      W{week}
+                    </span>
+                    {isPlayoff && (
+                      <span style={{ fontSize: 8, fontWeight: 800, color: '#ef4444', letterSpacing: '0.08em', marginTop: 2 }}>
+                        PLAYOFF
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, flex: 1, minWidth: 0 }}>
+                    {picks.map(pick => {
+                      const pc = POS_COLORS[pick.player.position]
+                      return (
+                        <div key={pick.player.appearance} style={{
+                          display: 'flex', alignItems: 'center', gap: 4,
+                          background: 'var(--navy-800)', border: '1px solid var(--border)',
+                          borderRadius: 4, padding: '2px 6px',
+                        }}>
+                          <span style={{ fontSize: 9, fontWeight: 800, color: pc.text, letterSpacing: '0.04em' }}>{pick.player.position}</span>
+                          <span style={{ fontSize: 11, color: '#cbd5e1' }}>{pick.player.lastName}</span>
+                          <span style={{ fontSize: 9, color: '#475569', fontWeight: 600 }}>{pick.player.nflTeam}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      </div>  {/* /RIGHT column */}
+      </div>  {/* /two-column grid */}
     </div>
   )
 }
