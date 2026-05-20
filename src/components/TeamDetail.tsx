@@ -482,14 +482,14 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
             <table style={{ width: '100%', fontSize: 11, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'var(--navy-800)', borderBottom: '1px solid var(--border)' }}>
-                  {(['#','PLAYER','POS','NFL','RD','ADP','±ADP','RATE','BENCH','GRADE','PCTILE','P(↑)','AVG','MAX'] as const).map((h, i) => (
+                  {(['#','PLAYER','POS','NFL','BYE','RD','ADP','±ADP','RATE','BENCH','GRADE','PCTILE','P(↑)','AVG','MAX'] as const).map((h, i) => (
                     <th key={i} style={{
                       padding: '7px 10px',
-                      textAlign: i >= 7 ? 'right' : (i === 3 || i === 4) ? 'center' : i === 5 || i === 6 ? 'right' : 'left',
+                      textAlign: i >= 8 ? 'right' : (i === 3 || i === 4 || i === 5) ? 'center' : i === 6 || i === 7 ? 'right' : 'left',
                       fontSize: 10, fontWeight: 700, letterSpacing: '0.07em',
-                      color: i >= 7 ? '#475569' : i === 5 ? '#64748b' : i === 6 ? '#64748b' : '#334155',
+                      color: i >= 8 ? '#475569' : i === 6 ? '#64748b' : i === 7 ? '#64748b' : '#334155',
                       whiteSpace: 'nowrap',
-                      borderRight: (i === 4 || i === 6 || i === 11) ? '1px solid var(--border)' : undefined,
+                      borderRight: (i === 5 || i === 7 || i === 12) ? '1px solid var(--border)' : undefined,
                     }}>
                       {h}
                     </th>
@@ -535,6 +535,24 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                         </span>
                       </td>
                       <td style={{ padding: '6px 10px', textAlign: 'center', color: '#475569' }}>{pick.player.nflTeam || '—'}</td>
+                      <td style={{ padding: '6px 10px', textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+                        {(() => {
+                          const bye = getByeWeek(pick.player.nflTeam)
+                          if (bye === null) return <span style={{ color: '#1e293b' }}>—</span>
+                          const isPlayoff = bye >= 15
+                          return (
+                            <span style={{
+                              fontSize: 9, fontWeight: 800,
+                              color: isPlayoff ? '#ef4444' : '#475569',
+                              background: isPlayoff ? '#450a0a' : 'transparent',
+                              border: isPlayoff ? '1px solid #7f1d1d' : 'none',
+                              borderRadius: 3, padding: isPlayoff ? '1px 4px' : '0',
+                            }}>
+                              {bye}
+                            </span>
+                          )
+                        })()}
+                      </td>
                       <td style={{ padding: '6px 10px', textAlign: 'center', color: '#334155', fontVariantNumeric: 'tabular-nums', borderRight: '1px solid var(--border)' }}>{round}</td>
 
                       {/* Current ADP */}
