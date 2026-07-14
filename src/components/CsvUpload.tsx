@@ -4,11 +4,12 @@ import { useRef } from 'react'
 
 interface Props {
   onFileLoaded: (file: File) => void
-  onReset: () => void
-  usingDefault: boolean
+  /** Label text; defaults to the compact header CTA. */
+  label?: string
+  hasData?: boolean
 }
 
-export default function CsvUpload({ onFileLoaded, onReset, usingDefault }: Props) {
+export default function CsvUpload({ onFileLoaded, label = 'UPLOAD CSV', hasData = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -33,20 +34,9 @@ export default function CsvUpload({ onFileLoaded, onReset, usingDefault }: Props
         onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
         onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
       >
-        UPLOAD CSV
+        {hasData ? 'REPLACE CSV' : label}
         <input ref={inputRef} type="file" accept=".csv" className="hidden" onChange={handleChange} />
       </label>
-
-      {usingDefault ? (
-        <span style={{ fontSize: 10, color: '#475569', letterSpacing: '0.04em' }}>
-          Sample data loaded
-        </span>
-      ) : (
-        <button onClick={onReset}
-          style={{ fontSize: 10, color: '#475569', textDecoration: 'underline', letterSpacing: '0.04em', cursor: 'pointer' }}>
-          Reset
-        </button>
-      )}
     </div>
   )
 }

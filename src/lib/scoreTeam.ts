@@ -89,24 +89,83 @@ export function computeTeamScore(
   return { pQB, pRB, pWR, pTE, pCeil, sPos, sRaw }
 }
 
+// ── Tier grading ───────────────────────────────────────────────────────────
+//
+// Tiers are graded against a *distribution* of team scores rather than fixed
+// sRaw cut-points. We model sRaw across a portfolio as approximately normal and
+// assign a letter grade from each team's z-score. This keeps grades meaningful
+// as the score formula (or projection source) shifts the absolute sRaw range,
+// and it makes an "average" team land at the center of the scale (B/B-) with
+// symmetric A/F tails.
+//
+// Reference distribution — the moments of a well-constructed best-ball team's
+// sRaw, calibrated from the score formula's achievable range
+// (sRaw = 0.65·sPos + 0.35·pCeil): centered ~0.38 with ~0.11 spread.
+const REF_MEAN = 0.38
+const REF_STD = 0.11
+// Shrinkage strength. Portfolio moments earn full weight as team count grows;
+// small portfolios lean on the reference so 3 teams aren't force-curved into a
+// full A+…F spread.  w = n / (n + SHRINK_K).
+const SHRINK_K = 25
+// Floor on the effective σ so a portfolio of near-identical teams doesn't blow
+// up z-scores (and divide-by-zero) over trivial score differences.
+const MIN_STD = 0.05
+
+export interface TierParams {
+  mean: number
+  std: number
+}
+
+/** The calibrated reference distribution, used when no portfolio is available. */
+export const REFERENCE_TIER_PARAMS: TierParams = { mean: REF_MEAN, std: REF_STD }
+
 /**
- * Converts an absolute sRaw score to a tier grade.
- *
- * sRaw = 0.65 × sPos + 0.35 × pCeil; calibrated range:
- *   ~0.20 → very weak team (poor positional probs + low ceiling)
- *   ~0.38 → average well-constructed team
- *   ~0.52 → good team above average
- *   ~0.65+ → elite construction
+ * Blend a portfolio's sRaw moments toward the calibrated reference via
+ * shrinkage, so tiers reflect the real distribution of team scores when the
+ * portfolio is large, and a sensible fixed scale when it is small.
  */
-export function toTier(sRaw: number): Tier {
-  if (sRaw >= 0.64) return 'A+'
-  if (sRaw >= 0.57) return 'A'
-  if (sRaw >= 0.50) return 'A-'
-  if (sRaw >= 0.45) return 'B+'
-  if (sRaw >= 0.39) return 'B'
-  if (sRaw >= 0.33) return 'B-'
-  if (sRaw >= 0.26) return 'C'
-  if (sRaw >= 0.19) return 'D'
+export function computeTierParams(scores: number[]): TierParams {
+  const n = scores.length
+  if (n === 0) return { ...REFERENCE_TIER_PARAMS }
+
+  const mean = scores.reduce((a, b) => a + b, 0) / n
+  const variance =
+    n > 1 ? scores.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1) : 0
+  const std = Math.sqrt(variance)
+
+  const w = n / (n + SHRINK_K) // 0 → all reference, 1 → all portfolio
+  return {
+    mean: w * mean + (1 - w) * REF_MEAN,
+    std: Math.max(w * std + (1 - w) * REF_STD, MIN_STD),
+  }
+}
+
+// z-score → letter grade cut-points. Centered so an average team (z ≈ 0) lands
+// at B/B-, with roughly symmetric tails. Approx normal percentiles:
+//   +1.75 ≈ 96th · +1.15 ≈ 87th · +0.65 ≈ 74th · +0.25 ≈ 60th
+//   −0.25 ≈ 40th · −0.65 ≈ 26th · −1.15 ≈ 13th · −1.75 ≈ 4th
+const TIER_Z_CUTS: [number, Tier][] = [
+  [1.75, 'A+'],
+  [1.15, 'A'],
+  [0.65, 'A-'],
+  [0.25, 'B+'],
+  [-0.25, 'B'],
+  [-0.65, 'B-'],
+  [-1.15, 'C'],
+  [-1.75, 'D'],
+]
+
+/**
+ * Grade a single sRaw score against a (portfolio-aware) distribution.
+ * Defaults to the calibrated reference distribution when no params are given,
+ * so callers scoring a lone team still get a sensible absolute grade.
+ */
+export function toTier(sRaw: number, params: TierParams = REFERENCE_TIER_PARAMS): Tier {
+  const std = params.std || MIN_STD
+  const z = (sRaw - params.mean) / std
+  for (const [cut, tier] of TIER_Z_CUTS) {
+    if (z >= cut) return tier
+  }
   return 'F'
 }
 
@@ -125,14 +184,19 @@ export const TIER_STYLE: Record<Tier, { text: string; bg: string; border: string
 
 /**
  * Converts a map of raw scores into ranked TeamScore objects.
- * Tier is graded on absolute sRaw thresholds — not relative portfolio rank —
- * so a 3-team portfolio doesn't force an A+/B/F spread.
- * portfolioRank (1 = best) and percentile (100 = best) provide relative context.
+ *
+ * Tier is graded against the portfolio's own sRaw distribution, shrunk toward a
+ * calibrated reference (see computeTierParams) so a large portfolio is graded on
+ * its real spread while a handful of teams isn't force-curved into a full
+ * A+…F range. portfolioRank (1 = best) and percentile (100 = best) still
+ * provide purely relative context.
  */
 export function rankScores(raw: Map<string, TeamScoreComponents>): Map<string, TeamScore> {
   const entries = Array.from(raw.entries())
   const n = entries.length
   if (n === 0) return new Map()
+
+  const params = computeTierParams(entries.map(([, c]) => c.sRaw))
 
   // Sort descending so index 0 = best team (rank 1)
   const sorted = [...entries].sort(([, a], [, b]) => b.sRaw - a.sRaw)
@@ -146,7 +210,7 @@ export function rankScores(raw: Map<string, TeamScoreComponents>): Map<string, T
       percentile,
       portfolioRank,
       portfolioSize: n,
-      tier: toTier(components.sRaw),
+      tier: toTier(components.sRaw, params),
     })
   })
 

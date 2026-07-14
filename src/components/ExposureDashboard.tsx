@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useDraftData } from '@/hooks/useDraftData'
 import { usePredictions, PredSplit } from '@/hooks/usePredictions'
-import { use2025Predictions } from '@/hooks/use2025Predictions'
 import { useTeamScores } from '@/hooks/useTeamScores'
 import { useAdpData } from '@/hooks/useAdpData'
 import CsvUpload from './CsvUpload'
@@ -15,7 +14,6 @@ import PlayerComboPanel from './PlayerComboPanel'
 import DraftTrends from './DraftTrends'
 
 type Tab = 'teams' | 'exposures' | 'combo' | 'trends'
-type Season = '2025' | '2026'
 
 const TABS: { key: Tab; label: string }[] = [
   { key: 'teams',     label: 'Teams'        },
@@ -37,25 +35,13 @@ const SPLIT_ACTIVE: Record<PredSplit, string> = {
 }
 
 export default function ExposureDashboard() {
-  const [activeSeason, setActiveSeason] = useState<Season>('2026')
-  const defaultCsvUrl = activeSeason === '2025' ? '/default-data-2025.csv' : '/default-data.csv'
-
   const {
     data, filters, setFilters, selectedEntryId, setSelectedEntryId,
-    filteredExposures, selectedEntry, loadFromFile, resetToDefault,
-    isLoading: draftLoading, error: draftError, usingDefault,
-  } = useDraftData(defaultCsvUrl)
+    filteredExposures, selectedEntry, loadFromFile,
+    isLoading: draftLoading, error: draftError,
+  } = useDraftData()
 
-  const { predictions: pred26, getPred: getPred26, isLoading: pred26Loading, error: pred26Error } = usePredictions()
-  const { getPred: getPred25, isLoading: pred25Loading, error: pred25Error } = use2025Predictions(pred26)
-
-  // In 2025 mode: use 2025 projections with 2026 as fallback for players
-  // missing from projections-2025.csv (file coverage ends at NFLNewsID 19126)
-  const getPred = activeSeason === '2025'
-    ? (name: string) => getPred25(name) ?? getPred26(name)
-    : getPred26
-  const predLoading = activeSeason === '2025' ? pred25Loading : pred26Loading
-  const predError = activeSeason === '2025' ? pred25Error : pred26Error
+  const { getPred, isLoading: predLoading, error: predError } = usePredictions()
 
   const teamScores = useTeamScores(data?.entries ?? [], getPred)
   const { adpMap } = useAdpData()
@@ -71,13 +57,9 @@ export default function ExposureDashboard() {
     setComboNames(prev => prev.filter(n => n !== name))
   }
 
-  function switchSeason(s: Season) {
-    setActiveSeason(s)
-    setActiveTab('teams')
-    setComboNames([])
-  }
-
-  const isLoading = draftLoading || predLoading
+  // Projections load on mount; only block the UI on projections once the user
+  // has provided a draft file. Before that we show the upload gate.
+  const isLoading = draftLoading || (!!data && predLoading)
   const error = draftError || predError
 
   return (
@@ -98,31 +80,13 @@ export default function ExposureDashboard() {
                 <span className="font-bold text-white text-base tracking-tight">BestBall <span style={{ color: '#a78bfa' }}>Hub</span></span>
               </div>
 
-              {/* Season toggle */}
-              <div className="flex rounded overflow-hidden border" style={{ borderColor: 'var(--border-light)' }}>
-                {(['2025', '2026'] as Season[]).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => switchSeason(s)}
-                    className="px-3 py-1 text-xs font-bold transition-all"
-                    style={{
-                      background: activeSeason === s ? '#7c3aed' : 'var(--navy-800)',
-                      color: activeSeason === s ? '#ffffff' : '#64748b',
-                      borderRight: s === '2025' ? '1px solid var(--border-light)' : undefined,
-                    }}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-
               {data && (
                 <span className="hidden sm:block text-xs px-2 py-0.5 rounded-full border" style={{ color: '#64748b', borderColor: 'var(--border-light)', background: 'var(--navy-800)' }}>
                   {data.totalEntries} teams · {data.entries[0]?.picks.length ?? 0} picks/team
                 </span>
               )}
             </div>
-            <CsvUpload onFileLoaded={loadFromFile} onReset={resetToDefault} usingDefault={usingDefault} />
+            <CsvUpload onFileLoaded={loadFromFile} hasData={!!data} />
           </div>
 
           {/* Nav row: tabs + split pills */}
@@ -188,7 +152,7 @@ export default function ExposureDashboard() {
               <p className="text-xs uppercase tracking-widest" style={{ color: '#475569' }}>Loading data…</p>
             </div>
           </div>
-        ) : data && (
+        ) : data ? (
           <>
             {/* ── Teams ── */}
             {activeTab === 'teams' && (
@@ -269,6 +233,24 @@ export default function ExposureDashboard() {
               <DraftTrends entries={data.entries} teamScores={teamScores} />
             )}
           </>
+        ) : (
+          /* ── Upload gate — nothing is shown until the user provides their data ── */
+          <div className="flex items-center justify-center py-32">
+            <div className="max-w-md w-full text-center rounded-xl border px-8 py-10"
+              style={{ background: 'var(--navy-800)', borderColor: 'var(--border)' }}>
+              <div className="w-12 h-12 mx-auto mb-4 rounded-lg flex items-center justify-center text-white font-black"
+                style={{ background: 'var(--accent)' }}>BB</div>
+              <h2 className="text-white text-lg font-bold mb-2">Upload your drafts to begin</h2>
+              <p className="text-sm mb-6" style={{ color: '#94a3b8' }}>
+                Export your Underdog draft entries as a CSV and upload it here. Your
+                teams, exposures, and grades are computed entirely in your browser —
+                nothing is uploaded to a server.
+              </p>
+              <div className="flex justify-center">
+                <CsvUpload onFileLoaded={loadFromFile} label="UPLOAD DRAFT CSV" />
+              </div>
+            </div>
+          </div>
         )}
       </main>
     </div>
