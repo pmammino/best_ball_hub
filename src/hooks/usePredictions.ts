@@ -73,6 +73,13 @@ export function usePredictions() {
     [predByName],
   )
 
+  // Keyed by nfl_news_id (== feed <Player Id>) for id-based lookup.
+  const predById = useMemo(() => {
+    const m = new Map<string, PlayerPrediction>()
+    for (const p of predictions) m.set(String(p.NFLNewsID), p)
+    return m
+  }, [predictions])
+
   const { predByNorm, predByLastFirst } = useMemo(() => {
     const predByNorm      = new Map<string, PlayerPrediction>()
     const predByLastFirst = new Map<string, PlayerPrediction>()
@@ -108,5 +115,5 @@ export function usePredictions() {
     return undefined
   }, [predByName, predByNorm, predByLastFirst])
 
-  return { predictions, predByName, predByNorm, predByLastFirst, getPred, isLoading, error }
+  return { predictions, predById, predByName, predByNorm, predByLastFirst, getPred, isLoading, error }
 }

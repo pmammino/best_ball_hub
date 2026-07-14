@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import type { DraftEntry } from '@/lib/types'
+import type { DraftEntry, Player } from '@/lib/types'
 import type { PlayerPrediction } from './usePredictions'
 import { computeTeamScore, rankScores, TeamScore } from '@/lib/scoreTeam'
 
@@ -14,7 +14,7 @@ export type { TeamScore }
  */
 export function useTeamScores(
   entries: DraftEntry[],
-  getPred: (name: string) => PlayerPrediction | undefined,
+  getPred: (player: Player) => PlayerPrediction | undefined,
 ): Map<string, TeamScore> {
   return useMemo(() => {
     if (entries.length === 0) return new Map()

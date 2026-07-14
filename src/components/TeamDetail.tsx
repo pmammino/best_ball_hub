@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useSchedule, PlayoffWeek } from '@/hooks/useSchedule'
-import { DraftEntry, Pick, Position } from '@/lib/types'
+import { DraftEntry, Pick, Position, Player } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { getAVRate, gradeRate, exceedProb, pickToRound, POSITIONAL_BENCHMARKS, roundPercentile } from '@/lib/roundBenchmarks'
 import { simulateBestBall } from '@/lib/simulateBestBall'
@@ -12,7 +12,7 @@ import { AdpEntry } from '@/hooks/useAdpData'
 
 interface Props {
   entry: DraftEntry
-  getPred: (fullName: string) => PlayerPrediction | undefined
+  getPred: (player: Player) => PlayerPrediction | undefined
   activeSplit: PredSplit
   teamScore?: TeamScore
   adpMap?: Map<string, AdpEntry>
@@ -119,7 +119,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
   }
   for (const pick of entry.picks) {
     const pos = pick.player.position
-    const pred = getPred(pick.player.fullName)
+    const pred = getPred(pick.player)
     posSummary[pos].count += 1
     const sd = pred?.[activeSplit]
     if (sd) posSummary[pos].totalRate += sd.predRate
@@ -371,7 +371,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
               </thead>
               <tbody>
                 {entry.picks.filter(p => !posFilter || p.player.position === posFilter).map((pick, i) => {
-                  const predEntry  = getPred(pick.player.fullName)
+                  const predEntry  = getPred(pick.player)
                   const pred       = predEntry?.[activeSplit]
                   const round      = pickToRound(pick.pickNumber)
                   const adpEntry   = adpMap?.get(pick.player.appearance)
@@ -523,7 +523,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                     {picks.map(pick => {
-                      const pred = getPred(pick.player.fullName)?.[activeSplit]
+                      const pred = getPred(pick.player)?.[activeSplit]
                       const pc = POS_COLORS[pick.player.position]
                       return (
                         <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 7px' }}>
@@ -601,7 +601,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                               {gPicks.map(pick => {
-                                const pred = getPred(pick.player.fullName)?.[activeSplit]
+                                const pred = getPred(pick.player)?.[activeSplit]
                                 const pc = POS_COLORS[pick.player.position]
                                 return (
                                   <div key={pick.player.appearance} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.25)', borderRadius: 4, padding: '3px 8px' }}>

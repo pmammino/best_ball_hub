@@ -21,7 +21,7 @@ Refresh workflow (each offseason)
 ---------------------------------
   1. Save the current RotoWire "NFLceilfloor" feed to a file, e.g. feed.xml.
   2. Run:
-       python tools/build_players_csv.py --feed feed.xml --out players.csv
+       python tools/build_players_csv.py --feed feed.xml --out public/players.csv
      - Existing underdog_id values in players.csv are carried forward by
        nfl_news_id (so any ids you filled in by hand are preserved).
      - Players new to the feed appear with a blank underdog_id for you to fill.
@@ -126,7 +126,7 @@ def main():
     src.add_argument("--names-csv", help="Projections CSV with NFLNewsID + names")
     ap.add_argument("--seed", action="append", default=[],
                     help="CSV providing nfl_news_id->underdog_id (repeatable)")
-    ap.add_argument("--out", default="players.csv", help="Output CSV path")
+    ap.add_argument("--out", default="public/players.csv", help="Output CSV path")
     ap.add_argument("--keep-stale", action="store_true",
                     help="Keep players from --out that are no longer in the roster")
     args = ap.parse_args()
