@@ -1,0 +1,56 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+
+const ADP_URL =
+  'https://stats.underdogfantasy.com/v1/slates/a9c04e81-1ace-4b16-a31d-4c725a47f16f/contest_styles/9e62863e-1b29-53e8-8aca-2aae06aaac5f/appearances'
+
+export interface AdpEntry {
+  adp: number
+  positionRank: string
+}
+
+interface RawAppearance {
+  id: string
+  type: string
+  projection?: {
+    adp?: string
+    position_rank?: string
+  }
+}
+
+interface ApiResponse {
+  appearances: RawAppearance[]
+}
+
+export function useAdpData() {
+  const [adpMap, setAdpMap] = useState<Map<string, AdpEntry>>(new Map())
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch(ADP_URL)
+      .then(r => r.json())
+      .then((data: ApiResponse) => {
+        const map = new Map<string, AdpEntry>()
+        for (const app of data.appearances ?? []) {
+          if (app.type !== 'Player') continue
+          const adp = parseFloat(app.projection?.adp ?? '')
+          if (!app.id || isNaN(adp)) continue
+          map.set(app.id, {
+            adp,
+            positionRank: app.projection?.position_rank ?? '',
+          })
+        }
+        setAdpMap(map)
+        setIsLoading(false)
+      })
+      .catch(err => {
+        // Non-fatal — ADP enrichment is best-effort
+        setError(err?.message ?? 'Failed to load ADP data')
+        setIsLoading(false)
+      })
+  }, [])
+
+  return { adpMap, isLoading, error }
+}
