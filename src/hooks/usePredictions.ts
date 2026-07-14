@@ -1,8 +1,15 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { parseNamedProjections } from '@/lib/parseProjections'
+import { parseFeedProjections } from '@/lib/parseProjections'
 import { loadXGBModels, type XGBModel } from '@/lib/xgbRate'
+
+// Projections come from the RotoWire ceiling/floor feed. By default we hit the
+// same-origin path rewritten to the upstream proxy in next.config.mjs, which
+// avoids browser CORS. Override with NEXT_PUBLIC_PROJECTIONS_FEED_URL to point
+// directly at a CORS-enabled proxy instead.
+const PROJECTIONS_FEED_URL =
+  process.env.NEXT_PUBLIC_PROJECTIONS_FEED_URL ?? '/api/projections-feed'
 
 export type PredSplit = 'C' | 'M' | 'F'
 
@@ -45,11 +52,14 @@ export function usePredictions() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/projections.csv').then(r => r.text()),
+      fetch(PROJECTIONS_FEED_URL).then(r => {
+        if (!r.ok) throw new Error(`Projections feed returned ${r.status}`)
+        return r.text()
+      }),
       loadXGBModels().catch(() => null as Map<string, XGBModel> | null),
     ])
       .then(([text, models]) => {
-        setPredByName(parseNamedProjections(text, models ?? undefined))
+        setPredByName(parseFeedProjections(text, models ?? undefined))
         setIsLoading(false)
       })
       .catch((err) => {
