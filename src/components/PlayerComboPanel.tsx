@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
-import { DraftEntry, PlayerExposure } from '@/lib/types'
+import { DraftEntry, PlayerExposure, Player } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { computeExposures } from '@/lib/processData'
 
@@ -12,7 +12,7 @@ interface Props {
   onAdd: (name: string) => void
   onRemove: (name: string) => void
   onClear: () => void
-  getPred: (name: string) => PlayerPrediction | undefined
+  getPred: (player: Player) => PlayerPrediction | undefined
   activeSplit: PredSplit
 }
 
@@ -203,7 +203,7 @@ export default function PlayerComboPanel({
                 </thead>
                 <tbody>
                   {coExposures.map((exp, i) => {
-                    const pred  = getPred(exp.player.fullName)
+                    const pred  = getPred(exp.player)
                     const sd    = pred?.[activeSplit]
                     const c     = POS_COLORS[exp.player.position]
                     const rowBg = i % 2 === 0 ? 'var(--navy-900)' : 'var(--navy-950)'

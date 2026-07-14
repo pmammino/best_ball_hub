@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { PlayerExposure, SortField, SortDirection } from '@/lib/types'
+import { PlayerExposure, SortField, SortDirection, Player } from '@/lib/types'
 import { PlayerPrediction, PredSplit } from '@/hooks/usePredictions'
 import { AdpEntry } from '@/hooks/useAdpData'
 
 interface Props {
   exposures: PlayerExposure[]
   totalEntries: number
-  getPred: (fullName: string) => PlayerPrediction | undefined
+  getPred: (player: Player) => PlayerPrediction | undefined
   activeSplit: PredSplit
   comboNames?: string[]
   onAddToCombo?: (name: string) => void
@@ -54,8 +54,8 @@ function sort(
     let av: string | number, bv: string | number
     if (field === 'predRate' || field === 'predAVG' || field === 'predMax') {
       const key = field as 'predRate' | 'predAVG' | 'predMax'
-      av = getPred(a.player.fullName)?.[split]?.[key] ?? -1
-      bv = getPred(b.player.fullName)?.[split]?.[key] ?? -1
+      av = getPred(a.player)?.[split]?.[key] ?? -1
+      bv = getPred(b.player)?.[split]?.[key] ?? -1
     } else if (field === 'adp') {
       av = adpMap?.get(a.player.appearance)?.adp ?? 9999
       bv = adpMap?.get(b.player.appearance)?.adp ?? 9999
@@ -147,7 +147,7 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
           </thead>
           <tbody>
             {sorted.map((exp, i) => {
-              const pred     = getPred(exp.player.fullName)
+              const pred     = getPred(exp.player)
               const sd       = pred?.[activeSplit]
               const adpEntry = adpMap?.get(exp.player.appearance)
               const adp      = adpEntry?.adp

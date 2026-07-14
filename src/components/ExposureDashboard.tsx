@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useDraftData } from '@/hooks/useDraftData'
-import { usePredictions, PredSplit } from '@/hooks/usePredictions'
+import { usePredictions, PredSplit, PlayerPrediction } from '@/hooks/usePredictions'
+import { usePlayerMap } from '@/hooks/usePlayerMap'
 import { useTeamScores } from '@/hooks/useTeamScores'
 import { useAdpData } from '@/hooks/useAdpData'
+import type { Player } from '@/lib/types'
 import CsvUpload from './CsvUpload'
 import FilterBar from './FilterBar'
 import ExposureTable from './ExposureTable'
@@ -41,10 +43,24 @@ export default function ExposureDashboard() {
     isLoading: draftLoading, error: draftError,
   } = useDraftData()
 
-  const { getPred, isLoading: predLoading, error: predError } = usePredictions()
+  const { predById, getPred: getPredByName, isLoading: predLoading, error: predError } = usePredictions()
+  const { underdogToNflId } = usePlayerMap()
+  const { adpMap, appearanceToUnderdogId } = useAdpData()
+
+  // ID-first projection lookup:
+  //   draft appearance id → Underdog player id → nfl_news_id → projection.
+  // Falls back to name matching only when a player is missing from the id map.
+  const getPred = useCallback((player: Player): PlayerPrediction | undefined => {
+    const underdogId = appearanceToUnderdogId.get(player.appearance)
+    const nflId = underdogId ? underdogToNflId.get(underdogId) : undefined
+    if (nflId) {
+      const byId = predById.get(nflId)
+      if (byId) return byId
+    }
+    return getPredByName(player.fullName)
+  }, [appearanceToUnderdogId, underdogToNflId, predById, getPredByName])
 
   const teamScores = useTeamScores(data?.entries ?? [], getPred)
-  const { adpMap } = useAdpData()
 
   const [activeTab,   setActiveTab]   = useState<Tab>('teams')
   const [activeSplit, setActiveSplit] = useState<PredSplit>('M')

@@ -1,4 +1,4 @@
-import type { Pick } from './types'
+import type { Pick, Player } from './types'
 import type { PlayerPrediction } from '@/hooks/usePredictions'
 
 export interface SimResult {
@@ -29,7 +29,7 @@ function randn(): number {
  */
 export function simulateBestBall(
   picks: Pick[],
-  getPred: (name: string) => PlayerPrediction | undefined,
+  getPred: (player: Player) => PlayerPrediction | undefined,
   threshold = 160,
   sims = 50_000,
   gameMap?: Map<string, string>,
@@ -51,7 +51,7 @@ export function simulateBestBall(
   }
 
   const players: PlayerParam[] = picks.map(pick => {
-    const pred = getPred(pick.player.fullName)
+    const pred = getPred(pick.player)
     const mean = pred?.M?.predAVG ?? 0
     const splits = [pred?.C, pred?.M, pred?.F].filter((s): s is NonNullable<typeof s> => !!s)
     const diffs = splits.map(s => s.predMax - s.predAVG)

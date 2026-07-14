@@ -1,4 +1,4 @@
-import type { DraftEntry } from './types'
+import type { DraftEntry, Player } from './types'
 import type { PlayerPrediction } from '@/hooks/usePredictions'
 import { POSITIONAL_BENCHMARKS, exceedProb } from './roundBenchmarks'
 import { simulateBestBall } from './simulateBestBall'
@@ -25,14 +25,14 @@ export interface TeamScore extends TeamScoreComponents {
 /** P that a single positional group exceeds the team-level benchmark. */
 function positionalProb(
   entry: DraftEntry,
-  getPred: (name: string) => PlayerPrediction | undefined,
+  getPred: (player: Player) => PlayerPrediction | undefined,
   pos: string,
 ): number {
   let totalMedianRate = 0
   let sumSdSq = 0
   for (const pick of entry.picks) {
     if (pick.player.position !== pos) continue
-    const pred = getPred(pick.player.fullName)
+    const pred = getPred(pick.player)
     const med = pred?.M
     if (med) totalMedianRate += med.predRate
     const sigma = pred?.stdDev ?? 0
@@ -61,7 +61,7 @@ function positionalProb(
  */
 export function computeTeamScore(
   entry: DraftEntry,
-  getPred: (name: string) => PlayerPrediction | undefined,
+  getPred: (player: Player) => PlayerPrediction | undefined,
   fastSims = 2_000,
 ): TeamScoreComponents {
   const pQB = positionalProb(entry, getPred, 'QB')
