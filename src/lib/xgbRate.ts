@@ -57,9 +57,9 @@ export function xgbPredict(model: XGBModel, featVals: Record<string, number>): n
 }
 
 /** Load all four positional models in parallel. */
-// Module-level singleton — fetched and parsed at most once per page session.
-// Both usePredictions and use2025Predictions share the same promise, so the
-// four JSON files are only fetched/parsed once even when both hooks mount.
+// Module-level singleton — fetched and parsed at most once per page session,
+// so the four JSON files are only fetched/parsed once no matter how many
+// consumers call loadXGBModels().
 let _modelPromise: Promise<Map<string, XGBModel>> | null = null
 
 export function loadXGBModels(): Promise<Map<string, XGBModel>> {

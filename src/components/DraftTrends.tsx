@@ -38,8 +38,6 @@ export default function DraftTrends({ entries, teamScores }: Props) {
   const totalEntries = entries.length
   const [mixMode, setMixMode] = useState<MixMode>('share')
 
-  if (totalEntries === 0) return null
-
   const picksPerTeam = entries[0]?.picks.length ?? 18
   const roundCount = picksPerTeam
 
@@ -239,6 +237,10 @@ export default function DraftTrends({ entries, teamScores }: Props) {
   }, [coMatrix, playerDist])
 
   const [focusedPlayer, setFocusedPlayer] = useState<string | null>(null)
+
+  // Guard must come *after* all hooks (rules-of-hooks); DraftTrends is only
+  // mounted with a loaded portfolio, but this keeps the empty case safe.
+  if (totalEntries === 0) return null
 
   return (
     <div className="space-y-8">
@@ -577,7 +579,6 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                   const count  = phase.counts[pos]
                   const pct    = phase.pct[pos]
                   const avg    = overallSplit[pos]        // portfolio-wide % for this position
-                  const ratio  = avg > 0 ? pct / avg : 0
                   const dev    = pct - avg                // percentage-point deviation
                   const absDev = Math.abs(dev)
                   const isOver  = dev > 2
