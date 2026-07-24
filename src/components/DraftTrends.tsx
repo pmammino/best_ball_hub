@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import type { DraftEntry, Position } from '@/lib/types'
 import type { TeamScore } from '@/lib/scoreTeam'
 import { TIER_STYLE } from '@/lib/scoreTeam'
+import HelpPopover from './HelpPopover'
 
 type MixMode = 'share' | 'relative'
 type PlayerInfo = { name: string; pos: Position; count: number; pct: number }
@@ -22,8 +23,11 @@ const POS_COLOR: Record<Position, { fill: string; muted: string }> = {
   TE: { fill: '#c084fc', muted: '#6b21a8' },
 }
 
-// Indicative best ball target positional splits (percentage of picks)
-const TARGET_SPLIT: Record<Position, number> = { QB: 8, RB: 29, WR: 42, TE: 8 }
+// Indicative best ball targets.
+// RB/WR are expressed as a share of picks; QB/TE are expressed as players per
+// team (2.5 each) and converted to a share based on roster size below.
+const TARGET_SHARE: Record<'RB' | 'WR', number> = { RB: 29, WR: 42 }
+const TARGET_PER_TEAM: Record<'QB' | 'TE', number> = { QB: 2.5, TE: 2.5 }
 
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0
@@ -40,6 +44,15 @@ export default function DraftTrends({ entries, teamScores }: Props) {
 
   const picksPerTeam = entries[0]?.picks.length ?? 18
   const roundCount = picksPerTeam
+
+  // Target split: RB/WR are fixed share targets; QB/TE are 2.5 players per team
+  // converted to a share of the roster so the target tracks roster size.
+  const targetSplit = useMemo<Record<Position, number>>(() => ({
+    QB: Math.round((TARGET_PER_TEAM.QB / picksPerTeam) * 100),
+    RB: TARGET_SHARE.RB,
+    WR: TARGET_SHARE.WR,
+    TE: Math.round((TARGET_PER_TEAM.TE / picksPerTeam) * 100),
+  }), [picksPerTeam])
 
   // ── Derived data ─────────────────────────────────────────────────────────────
 
@@ -248,7 +261,14 @@ export default function DraftTrends({ entries, teamScores }: Props) {
       {/* ── 1. Round-by-Round Position Mix ── */}
       <section>
         <div className="flex items-center justify-between gap-4 flex-wrap mb-1">
-          <h2 className="section-header">Round-by-Round Position Mix</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="section-header">Round-by-Round Position Mix</h2>
+            <HelpPopover title="Round-by-Round Position Mix">
+              <p><span className="hp-label">What it shows</span> For each pick slot (&ldquo;round&rdquo; = your Nth pick, not the board pick number), the mix of positions you spend it on, pooled across all your teams. Toggle <strong>Share %</strong> for the raw split, or <strong>vs. Avg</strong> for each round&rsquo;s share divided by that position&rsquo;s portfolio-wide average.</p>
+              <p><span className="hp-label">Example</span> If Round&nbsp;6 shows QB at 28%, then across your teams 28% of all 6th picks were quarterbacks. In vs.&nbsp;Avg mode a <strong>2.0×</strong> cell means you take that position in that round twice as often as you do on average.</p>
+              <p><span className="hp-label">How to use it</span> Hot cells in the heatmap flag rounds where you keep hammering one position. Use it to catch an unintended pattern (e.g. always forcing a QB in Round&nbsp;6) and find rounds where you could diversify.</p>
+            </HelpPopover>
+          </div>
           <ModeToggle mode={mixMode} onChange={setMixMode} />
         </div>
         <p className="text-xs mb-4" style={{ color: '#64748b' }}>
@@ -380,7 +400,14 @@ export default function DraftTrends({ entries, teamScores }: Props) {
 
       {/* ── 2. Draft Windows ── */}
       <section>
-        <h2 className="section-header mb-1">Positional Draft Windows</h2>
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="section-header">Positional Draft Windows</h2>
+          <HelpPopover title="Positional Draft Windows">
+            <p><span className="hp-label">What it shows</span> A box plot of <em>which rounds</em> you draft each position. The thick line is the median round, the shaded box is the middle 50% of picks (25th&ndash;75th percentile), and the dashed whiskers reach the 10th and 90th percentiles.</p>
+            <p><span className="hp-label">Example</span> A QB box spanning rounds 7&ndash;13 with a median of 9 means half your QBs come off the board between rounds 7 and 13, and a typical QB lands around round&nbsp;9.</p>
+            <p><span className="hp-label">How to use it</span> A <strong>narrow box</strong> = a rigid, predictable window (you always grab TEs in the same 2&ndash;3 rounds); a <strong>wide box</strong> = flexible timing. If a position&rsquo;s window is later than you intend, it flags that you&rsquo;re consistently waiting on it.</p>
+          </HelpPopover>
+        </div>
         <p className="text-xs mb-4" style={{ color: '#64748b' }}>
           Distribution of draft rounds for each position (P10 – P90). A wider box means more variation in when you target that position.
         </p>
@@ -394,7 +421,14 @@ export default function DraftTrends({ entries, teamScores }: Props) {
 
         {/* ── 3. Roster Construction ── */}
         <section>
-          <h2 className="section-header mb-1">Roster Construction</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="section-header">Roster Construction</h2>
+            <HelpPopover title="Roster Construction">
+              <p><span className="hp-label">What it shows</span> How many players of each position you end up with per team. Each bar is a count (e.g. 5 RBs) and its height is the share of your teams that landed there. The combos table below shows your most frequent full roster shapes as QB&middot;RB&middot;WR&middot;TE.</p>
+              <p><span className="hp-label">Example</span> RB &ldquo;median 5, range 4&ndash;7&rdquo; with 47% at 5 means most teams finish with five RBs. A top combo of <strong>2-5-8-3</strong> on 15% of teams means that exact build is your single most common shape.</p>
+              <p><span className="hp-label">How to use it</span> Check structural diversity. If one combo dominates (say 40%+ of teams), your portfolio is correlated &mdash; many teams rise and fall together. A spread of builds covers more outcomes.</p>
+            </HelpPopover>
+          </div>
           <p className="text-xs mb-4" style={{ color: '#64748b' }}>
             How many players at each position per team across your portfolio.
           </p>
@@ -493,14 +527,21 @@ export default function DraftTrends({ entries, teamScores }: Props) {
 
         {/* ── 4. Portfolio Balance ── */}
         <section>
-          <h2 className="section-header mb-1">Portfolio Balance</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="section-header">Portfolio Balance</h2>
+            <HelpPopover title="Portfolio Balance">
+              <p><span className="hp-label">What it shows</span> Your overall positional pick split vs. indicative best-ball targets. The colored fill is your actual share, the vertical tick is the target, and the badge reads over / under / on&nbsp;track (within &plusmn;3 percentage points). QB and TE targets assume <strong>2.5 players per team</strong>; RB/WR are share targets.</p>
+              <p><span className="hp-label">Example</span> On an 18-pick roster, 2.5 QBs per team works out to a ~14% target. QB actual 15% vs. 14% &rarr; <strong>On track</strong>. TE actual 20% vs. 14% &rarr; <strong>+6pp over</strong>, i.e. you&rsquo;re spending more picks on TE than a balanced build suggests.</p>
+              <p><span className="hp-label">How to use it</span> A fast sanity check that you&rsquo;re not systematically over-investing anywhere. Persistent &ldquo;over&rdquo; on QB/TE usually means you can free up picks for RB/WR depth. Targets are indicative because FLEX picks are shared across RB/WR/TE.</p>
+            </HelpPopover>
+          </div>
           <p className="text-xs mb-4" style={{ color: '#64748b' }}>
             Your overall positional split vs. indicative best ball targets.
           </p>
           <div className="space-y-4">
             {POSITIONS.map(pos => {
               const actual = overallSplit[pos]
-              const target = TARGET_SPLIT[pos]
+              const target = targetSplit[pos]
               const diff = actual - target
               const absDiff = Math.abs(diff)
               const status = absDiff <= 3 ? 'ok' : diff > 0 ? 'over' : 'under'
@@ -566,7 +607,14 @@ export default function DraftTrends({ entries, teamScores }: Props) {
 
       {/* ── 5. Phase Tendencies ── */}
       <section>
-        <h2 className="section-header mb-1">Draft Phase Tendencies</h2>
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="section-header">Draft Phase Tendencies</h2>
+          <HelpPopover title="Draft Phase Tendencies">
+            <p><span className="hp-label">What it shows</span> The draft split into three windows &mdash; Early, Mid, Late &mdash; with each position&rsquo;s share <em>within</em> that window. The tick on each bar marks your portfolio-wide average for that position; the badge shows how far above or below that norm the phase runs.</p>
+            <p><span className="hp-label">Example</span> If QB is 25% of your Mid-round picks but your overall QB share is 15%, the <strong>+10pp</strong> badge tells you that you cluster your quarterbacks in the middle rounds.</p>
+            <p><span className="hp-label">How to use it</span> This reveals <em>when</em> you attack each position. Use it to see habits (WR early, TE late) and decide whether to shift timing &mdash; e.g. take a TE a round earlier, or spread QBs out instead of bunching them.</p>
+          </HelpPopover>
+        </div>
         <p className="text-xs mb-4" style={{ color: '#64748b' }}>
           Positional share per draft phase vs. your overall average. Badge shows how much each position is over or under your portfolio norm in that window.
         </p>
@@ -662,7 +710,14 @@ export default function DraftTrends({ entries, teamScores }: Props) {
       {/* ── 6. Portfolio Score Distributions ── */}
       {scoreStats && (
         <section>
-          <h2 className="section-header mb-1">Portfolio Score Distributions</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="section-header">Portfolio Score Distributions</h2>
+            <HelpPopover title="Portfolio Score Distributions">
+              <p><span className="hp-label">What it shows</span> For each model metric &mdash; the four positional-group strengths and the lineup ceiling probability &mdash; the spread of that score across all your teams: a faint min&ndash;max band, a darker middle-50% band, a median tick, and a filled dot for the average. Below it, how many of your teams land in each grade (A+ &ndash; F).</p>
+              <p><span className="hp-label">Example</span> A WR bar with an average of 55% but a min&ndash;max band from 20% to 85% means WR strength swings a lot team-to-team; a tight band means every team looks similar.</p>
+              <p><span className="hp-label">How to use it</span> Tight bands = a consistent portfolio (teams rise and fall together); wide bands = high variance (some strong, some weak). Pair it with the grade distribution to judge whether you have enough top-tier teams for a top-heavy tournament. <strong>Requires the projections feed</strong> &mdash; if projections aren&rsquo;t loaded, scores and grades will be empty.</p>
+            </HelpPopover>
+          </div>
           <p className="text-xs mb-5" style={{ color: '#64748b' }}>
             Range of positional probabilities and ceiling scores across all {totalEntries} teams — shows how consistent vs. variable each metric is in your portfolio.
           </p>
@@ -769,7 +824,14 @@ export default function DraftTrends({ entries, teamScores }: Props) {
 
       {/* ── 7. Portfolio Variability & Clustering ── */}
       <section>
-        <h2 className="section-header mb-1">Portfolio Variability &amp; Clustering</h2>
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="section-header">Portfolio Variability &amp; Clustering</h2>
+          <HelpPopover title="Portfolio Variability &amp; Clustering">
+            <p><span className="hp-label">What it shows</span> Two things. <strong>Exposure distribution</strong>: your most-drafted players per position, with a bar for each player&rsquo;s share of teams (the tick marks an even spread across all players you drafted there). <strong>Co-clustering</strong>: pairs that appear together, where P(B|A) = the share of Player&nbsp;A&rsquo;s teams that also roster Player&nbsp;B.</p>
+            <p><span className="hp-label">Example</span> Player A on 40% of teams with <strong>P(B|A)=100%</strong> means every team with A also has B &mdash; a locked stack. If P(A|B) is only 30%, then B shows up on plenty of other teams without A (the relationship is one-directional).</p>
+            <p><span className="hp-label">How to use it</span> Surface hidden correlation. High co-occurrence pairs mean those teams live and die together; if you didn&rsquo;t intend a stack, it flags accidental over-correlation. Click any player name to see their full companion profile.</p>
+          </HelpPopover>
+        </div>
         <p className="text-xs mb-5" style={{ color: '#64748b' }}>
           How concentrated or spread your picks are at each position, and which players consistently appear together across your teams.
         </p>

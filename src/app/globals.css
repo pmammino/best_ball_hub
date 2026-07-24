@@ -78,3 +78,17 @@ body {
 
 /* Table base */
 table { border-collapse: collapse; }
+
+/* Help popover body */
+.help-body p { margin: 0 0 9px; }
+.help-body p:last-child { margin-bottom: 0; }
+.help-body strong { color: #e2e8f0; font-weight: 700; }
+.help-body .hp-label {
+  display: block;
+  color: var(--accent-light);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  margin-bottom: 1px;
+}
