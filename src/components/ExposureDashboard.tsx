@@ -14,6 +14,7 @@ import TeamList from './TeamList'
 import TeamDetail from './TeamDetail'
 import PlayerComboPanel from './PlayerComboPanel'
 import DraftTrends from './DraftTrends'
+import { LogoLockup, LogoMark } from './Logo'
 
 type Tab = 'teams' | 'exposures' | 'combo' | 'trends'
 
@@ -82,19 +83,17 @@ export default function ExposureDashboard() {
     <div className="min-h-screen" style={{ background: 'var(--navy-950)' }}>
 
       {/* Top accent bar */}
-      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #5b21b6 0%, #8b5cf6 50%, #5b21b6 100%)' }} />
+      <div className="h-[3px] w-full" style={{ background: 'linear-gradient(90deg, #a01223 0%, #f22e45 50%, #a01223 100%)' }} />
 
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b" style={{ background: '#000000', borderColor: '#1a1a2e' }}>
+      <header className="sticky top-0 z-20 border-b" style={{ background: 'var(--dark-surface)', borderColor: 'var(--border)' }}>
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6">
 
           {/* Top row: logo + season toggle + upload */}
           <div className="flex items-center justify-between h-12 gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <div className="w-7 h-7 rounded flex items-center justify-center text-white font-black text-xs" style={{ background: 'var(--accent)' }}>BB</div>
-                <span className="font-bold text-white text-base tracking-tight">BestBall <span style={{ color: '#a78bfa' }}>Hub</span></span>
-              </div>
+              <LogoLockup className="h-7 w-auto" />
+
 
               {data && (
                 <span className="hidden sm:block text-xs px-2 py-0.5 rounded-full border" style={{ color: '#64748b', borderColor: 'var(--border-light)', background: 'var(--navy-800)' }}>
@@ -119,9 +118,9 @@ export default function ExposureDashboard() {
                     fontSize: 12,
                     fontWeight: 600,
                     letterSpacing: '0.01em',
-                    background: activeTab === key ? '#7c3aed' : 'transparent',
+                    background: activeTab === key ? '#f22e45' : 'transparent',
                     color: activeTab === key ? '#ffffff' : '#475569',
-                    border: `1px solid ${activeTab === key ? '#7c3aed' : 'var(--border)'}`,
+                    border: `1px solid ${activeTab === key ? '#f22e45' : 'var(--border)'}`,
                     cursor: 'pointer',
                     transition: 'all 0.15s',
                   }}
@@ -164,7 +163,7 @@ export default function ExposureDashboard() {
         {isLoading ? (
           <div className="flex items-center justify-center py-40">
             <div className="text-center space-y-3">
-              <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#8b5cf6', borderTopColor: 'transparent' }} />
+              <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin mx-auto" style={{ borderColor: '#f22e45', borderTopColor: 'transparent' }} />
               <p className="text-xs uppercase tracking-widest" style={{ color: '#475569' }}>Loading data…</p>
             </div>
           </div>
@@ -254,8 +253,7 @@ export default function ExposureDashboard() {
           <div className="flex items-center justify-center py-32">
             <div className="max-w-md w-full text-center rounded-xl border px-8 py-10"
               style={{ background: 'var(--navy-800)', borderColor: 'var(--border)' }}>
-              <div className="w-12 h-12 mx-auto mb-4 rounded-lg flex items-center justify-center text-white font-black"
-                style={{ background: 'var(--accent)' }}>BB</div>
+              <LogoMark className="w-12 h-12 mx-auto mb-4" />
               <h2 className="text-white text-lg font-bold mb-2">Upload your drafts to begin</h2>
               <p className="text-sm mb-6" style={{ color: '#94a3b8' }}>
                 Export your Underdog draft entries as a CSV and upload it here. Your

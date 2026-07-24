@@ -90,7 +90,7 @@ export default function PlayerComboPanel({
             <span style={{ fontSize: 11, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
               <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{comboEntries.length}</span>
               <span style={{ color: '#475569' }}> / {entries.length} teams</span>
-              <span style={{ color: '#7c3aed', fontWeight: 700, marginLeft: 4 }}>({comboPct}%)</span>
+              <span style={{ color: '#f22e45', fontWeight: 700, marginLeft: 4 }}>({comboPct}%)</span>
             </span>
             <button
               onClick={onClear}
@@ -152,7 +152,7 @@ export default function PlayerComboPanel({
                     <span style={{ fontSize: 9, fontWeight: 800, color: c.text, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 3, padding: '1px 4px', letterSpacing: '0.06em' }}>{s.player.position}</span>
                     <span style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 500 }}>{s.player.fullName}</span>
                     <span style={{ marginLeft: 'auto', fontSize: 10, color: '#475569' }}>{s.player.nflTeam}</span>
-                    <span style={{ fontSize: 10, color: '#7c3aed' }}>{s.exposurePct.toFixed(0)}%</span>
+                    <span style={{ fontSize: 10, color: '#f22e45' }}>{s.exposurePct.toFixed(0)}%</span>
                   </button>
                 )
               })}
@@ -225,7 +225,7 @@ export default function PlayerComboPanel({
                         <td style={{ padding: '7px 12px', textAlign: 'right' }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                             <div style={{ width: 48, height: 4, background: 'var(--navy-700)', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${exp.exposurePct}%`, background: '#8b5cf6', borderRadius: 2 }} />
+                              <div style={{ height: '100%', width: `${exp.exposurePct}%`, background: '#f22e45', borderRadius: 2 }} />
                             </div>
                             <span style={{ color: '#e2e8f0', fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right' }}>
                               {exp.exposurePct.toFixed(0)}%

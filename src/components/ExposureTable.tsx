@@ -140,7 +140,7 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
                   }}
                 >
                   {col.label}
-                  {sortField === col.key && <span style={{ marginLeft: 3, color: '#8b5cf6' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
+                  {sortField === col.key && <span style={{ marginLeft: 3, color: '#f22e45' }}>{sortDir === 'asc' ? '↑' : '↓'}</span>}
                 </th>
               ))}
             </tr>
@@ -170,7 +170,7 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
                         style={{ background: 'none', border: 'none', cursor: comboNames.includes(exp.player.fullName) ? 'default' : 'pointer', padding: 0, color: 'inherit', fontWeight: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                       >
                         {exp.player.fullName}
-                        <span style={{ fontSize: 10, color: comboNames.includes(exp.player.fullName) ? '#7c3aed' : '#334155', fontWeight: 700 }}>
+                        <span style={{ fontSize: 10, color: comboNames.includes(exp.player.fullName) ? '#f22e45' : '#334155', fontWeight: 700 }}>
                           {comboNames.includes(exp.player.fullName) ? '●' : '+'}
                         </span>
                       </button>
@@ -188,7 +188,7 @@ export default function ExposureTable({ exposures, totalEntries, getPred, active
                   <td style={{ padding: '7px 12px', textAlign: 'right' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
                       <div style={{ width: 56, height: 4, background: 'var(--navy-700)', borderRadius: 2, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${exp.exposurePct}%`, background: '#8b5cf6', borderRadius: 2 }} />
+                        <div style={{ height: '100%', width: `${exp.exposurePct}%`, background: '#f22e45', borderRadius: 2 }} />
                       </div>
                       <span style={{ color: '#e2e8f0', fontWeight: 600, fontVariantNumeric: 'tabular-nums', minWidth: 32, textAlign: 'right' }}>
                         {exp.exposurePct.toFixed(0)}%
