@@ -171,8 +171,8 @@ export default function ExposureDashboard() {
           <>
             {/* ── Teams ── */}
             {activeTab === 'teams' && (
-              <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5 items-start">
-                <div className="space-y-2">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="section-header">My Teams</h2>
                   <TeamList
                     entries={data.entries}
@@ -194,7 +194,7 @@ export default function ExposureDashboard() {
                 ) : (
                   <div className="flex items-center justify-center h-48 rounded-lg border text-xs uppercase tracking-widest"
                     style={{ borderColor: 'var(--border)', color: '#334155' }}>
-                    Select a team →
+                    Select a team to view details
                   </div>
                 )}
               </div>
