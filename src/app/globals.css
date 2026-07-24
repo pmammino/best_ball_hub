@@ -3,15 +3,25 @@
 @tailwind utilities;
 
 :root {
-  --navy-950: #070d1a;
-  --navy-900: #0d1525;
-  --navy-800: #131f33;
-  --navy-700: #1a2a42;
-  --navy-600: #243450;
-  --border: #1e2d44;
-  --border-light: #243550;
-  --accent: #7c3aed;
-  --accent-bright: #8b5cf6;
+  /* Brand palette */
+  --brand-navy: #002248;    /* Brand Navy   — RGB(0, 34, 72)  */
+  --brand-red: #f22e45;     /* Brand Red    — RGB(242, 46, 69) */
+  --brand-white: #ffffff;   /* White        — RGB(255, 255, 255) */
+  --dark-surface: #000d1a;  /* Dark Surface — RGB(0, 13, 26)  */
+
+  /* Navy surface scale (dark → light), derived from the brand navy/dark surface */
+  --navy-950: #000d1a;
+  --navy-900: #001526;
+  --navy-800: #002248;
+  --navy-700: #002d5c;
+  --navy-600: #003a72;
+  --border: #0a3a66;
+  --border-light: #14456f;
+
+  /* Accent (brand red) */
+  --accent: #f22e45;
+  --accent-bright: #f22e45;
+  --accent-light: #ff6b7a;  /* lighter red tint for text accents on dark */
 }
 
 body {

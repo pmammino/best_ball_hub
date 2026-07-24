@@ -33,7 +33,7 @@ function ordinal(n: number): string {
 }
 
 const STACK_PALETTE = [
-  { bg: '#130d1f', border: '#4c1d95', accent: '#8b5cf6' },
+  { bg: '#1f0810', border: '#7f1d2b', accent: '#f22e45' },
   { bg: '#0d1a1a', border: '#134e4a', accent: '#14b8a6' },
   { bg: '#1a0f0a', border: '#7c2d12', accent: '#fb923c' },
   { bg: '#1a0d1a', border: '#701a75', accent: '#e879f9' },
@@ -574,7 +574,7 @@ export default function TeamDetail({ entry, getPred, activeSplit, teamScore, adp
 
               return (
                 <div key={week}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: '#f22e45', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
                     Week {week}
                   </div>
                   {trueStacks.length === 0 ? (

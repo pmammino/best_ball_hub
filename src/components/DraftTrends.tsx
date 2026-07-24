@@ -475,7 +475,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
                         <td style={{ padding: '7px 10px', textAlign: 'right' }}>
                           <div className="flex items-center justify-end gap-2">
                             <div style={{ width: 40, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${pct}%`, background: '#7c3aed', borderRadius: 2 }} />
+                              <div style={{ height: '100%', width: `${pct}%`, background: '#f22e45', borderRadius: 2 }} />
                             </div>
                             <span style={{ fontSize: 11, color: isTop ? '#e2e8f0' : '#64748b', fontWeight: isTop ? 600 : 400, minWidth: 28, textAlign: 'right' }}>
                               {pct}%
@@ -674,7 +674,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
               { key: 'pRB',   label: 'RB',     sublabel: 'P(group ≥ 30 usable wks)', color: POS_COLOR.RB.fill },
               { key: 'pWR',   label: 'WR',     sublabel: 'P(group ≥ 40 usable wks)', color: POS_COLOR.WR.fill },
               { key: 'pTE',   label: 'TE',     sublabel: 'P(group ≥ 10 usable wks)', color: POS_COLOR.TE.fill },
-              { key: 'pCeil', label: 'Lineup', sublabel: 'P(≥ 160 pts ceiling)',      color: '#7c3aed'         },
+              { key: 'pCeil', label: 'Lineup', sublabel: 'P(≥ 160 pts ceiling)',      color: '#f22e45'         },
             ] as { key: keyof typeof scoreStats; label: string; sublabel: string; color: string }[]).map(({ key, label, sublabel, color }) => {
               const s = scoreStats[key]
               const fmt = (v: number) => `${Math.round(v * 100)}%`
@@ -868,7 +868,7 @@ export default function DraftTrends({ entries, teamScores }: Props) {
             {focusedPlayer && (
               <button
                 onClick={() => setFocusedPlayer(null)}
-                style={{ fontSize: 11, color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                style={{ fontSize: 11, color: '#f22e45', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
               >
                 ← All pairs
               </button>
@@ -1043,7 +1043,7 @@ function ModeToggle({ mode, onChange }: { mode: MixMode; onChange: (m: MixMode) 
               fontSize: 11,
               fontWeight: 600,
               letterSpacing: '0.02em',
-              background: active ? '#7c3aed' : 'var(--navy-800)',
+              background: active ? '#f22e45' : 'var(--navy-800)',
               color: active ? '#ffffff' : '#64748b',
               borderLeft: '1px solid var(--border-light)',
               cursor: 'pointer',
